@@ -29,7 +29,7 @@ You can learn about other public crates here: [https://docs.rs/](https://docs.rs
 For these crates, their github page or homepage may also be helpful. Feel free to read them.
 
 ## Programming 
-You will create a Rust project using Cargo. You need to add the following crates to your project dependencies:
+You will create a Rust project using Cargo. We do not provide template code for this assignment and you need to create a prjoect by yourself. You need to add the following crates to your project dependencies:
 - ring
 - bincode
 - serde
@@ -49,7 +49,7 @@ You need to write the main function of the project that does the following:
 9. deserialize bytes back to the instance using *bincode* crate.
 10. print on screen the serialized bytes and the deserialized instance using Debug format (hint: use "{:?}" instead of "{}").
 
-The expected output would look like the following, where the first line is the serialized bytes and the second line is the instance:
+The expected output of command `cargo run` would look like the following, where the first line is the serialized bytes and the second line is the instance:<a name="output">
 ```
    Compiling hello_world v0.1.0 (/home/user/Documents/hello_world)
     Finished dev [unoptimized + debuginfo] target(s) in 0.56s
@@ -57,6 +57,7 @@ The expected output would look like the following, where the first line is the s
 [10, 0, 0, 0, 0, 0, 0, 0, 74, 111, 104, 110, 32, 83, 109, 105, 116, 104, 64, 0, 0, 0, 0, 0, 0, 0, 101, 102, 54, 49, 97, 53, 55, 57, 99, 57, 48, 55, 98, 98, 101, 100, 54, 55, 52, 99, 48, 100, 98, 99, 98, 99, 102, 55, 102, 55, 97, 102, 56, 102, 56, 53, 49, 53, 51, 56, 101, 101, 102, 55, 98, 56, 101, 53, 56, 99, 53, 98, 101, 101, 48, 98, 56, 99, 102, 100, 97, 99, 52, 97]
 NameHash { name: "John Smith", hash: "ef61a579c907bbed674c0dbcbcf7f7af8f851538eef7b8e58c5bee0b8cfdac4a" }
 ```
+</a>
 
 ### Advance Notice
 This assignment has some basic Rust programming tasks. Each task is closely related to future projects in the course. 
@@ -66,4 +67,8 @@ This assignment has some basic Rust programming tasks. Each task is closely rela
 - The goal of steps 7, 8, 9 is to let you know how to encode any object into bytes. In network socket communcation, the messages are first encoded, then transmitted, and at last decoded at the receiver. In your  Bitcoin client, structs such as Block or Transaction need to be encoded and decoded.
 
 ### Submission
-Fill in a google form **before 12:30PM, Jan 28**. Google form will be ready soon. 
+You need to create the aforementioned project and put it on a *private* Gitlab @ Illnois repository. (Clone of this repository is not necessary for this assignment.) Please add accounts of TA to your repository as *reporter*. The accounts are: `geruiw2` and `rbrana2`.
+
+Run command `cargo run` in terminal for your project and copy the output on the screen. An example of output is in the [previous paragraph](#output).
+
+Fill in [this google form](https://forms.gle/9RBZVL8BvLDST1DD6) **before 12:30PM, Jan 28**. (Google @ Illinois login required.) 
