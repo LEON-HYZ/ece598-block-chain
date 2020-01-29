@@ -27,7 +27,7 @@ pub struct Context {
 
 #[derive(Clone)]
 pub struct Handle {
-    // Channel for sending signal to the miner thread
+    /// Channel for sending signal to the miner thread
     control_chan: Sender<ControlSignal>,
 }
 

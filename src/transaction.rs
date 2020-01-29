@@ -5,12 +5,12 @@ use ring::signature::{Ed25519KeyPair, Signature, KeyPair, VerificationAlgorithm,
 pub struct Transaction {
 }
 
-// Create digital signature of a transaction
+/// Create digital signature of a transaction
 pub fn sign(t: &Transaction, key: &Ed25519KeyPair) -> Signature {
     unimplemented!()
 }
 
-// Verify digital signature of a transaction, using public key instead of secret key
+/// Verify digital signature of a transaction, using public key instead of secret key
 pub fn verify(t: &Transaction, public_key: &<Ed25519KeyPair as KeyPair>::PublicKey, signature: &Signature) -> bool {
     unimplemented!()
 }
