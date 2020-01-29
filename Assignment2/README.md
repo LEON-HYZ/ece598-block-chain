@@ -1,5 +1,5 @@
 # Assignment 2
-In this assignment, you will implement some crypto-primitives and basic data structures. You will need the code that we provide in this repo. Please follow the instructions. **Due data: Feb 6, 2020.**
+In this assignment, you will implement some crypto-primitives and basic data structures. You will need the code that we provide in this repo. Please follow the instructions. **Due data: 12:30PM, Feb 6, 2020.**
 
 ## Repository management and submission:
 1. Fork the current repo. We are also going to use the same repo for midterm project, which means you don't need to fork this repo again in the future.
