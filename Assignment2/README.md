@@ -4,7 +4,7 @@ In this assignment, you will implement some crypto-primitives and basic data str
 **Notice that this is an individual assignment. You should finish it on your own.**
 
 ## Repository management and submission:
-1. Fork the current repo. We are also going to use the same repo for midterm project, which means you don't need to fork this repo again in the future.
+1. Fork the current repo. **Change visibility to private, if you don't want someone see your code.** Note: We are also going to use the same repo for midterm project, which means you don't need to fork this repo again in the future.
 2. Add TAs as a reporter on your forked repo (this repo is different from the one you used for assignment 1, so please add TAs again). TAs are `geruiw2` and `rbrana2`.
 3. Fill in a form to provide your repo URL. The form is not yet ready and will be ready by Jan 30.
 4. TAs will initiate a pull from your repo at the deadline for submission, and this will be considered a final submission.
