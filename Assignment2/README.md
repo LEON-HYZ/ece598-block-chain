@@ -1,6 +1,8 @@
 # Assignment 2
 In this assignment, you will implement some crypto-primitives and basic data structures. You will need the code that we provide in this repo. Please follow the instructions. **Due data: 12:30PM, Feb 6, 2020.**
 
+**Notice that this is an individual assignment. You should finish it on your own.**
+
 ## Repository management and submission:
 1. Fork the current repo. We are also going to use the same repo for midterm project, which means you don't need to fork this repo again in the future.
 2. Add TAs as a reporter on your forked repo (this repo is different from the one you used for assignment 1, so please add TAs again). TAs are `geruiw2` and `rbrana2`.
