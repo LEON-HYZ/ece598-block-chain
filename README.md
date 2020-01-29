@@ -8,6 +8,7 @@ We use Piazza for discussion.
 ## Assignments
 
 - [Assignment 1](Assignment1). Due date 12:30PM, Jan 28, 2020.
+- [Assignment 2](Assignment2). Due date 12:30PM, Feb 6, 2020.
 
 ## Midterm Project
 
