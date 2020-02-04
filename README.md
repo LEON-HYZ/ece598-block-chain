@@ -13,6 +13,7 @@ We use Piazza for discussion.
 ## Midterm Project
 
 - [Team formation](https://forms.gle/e4UXyXrHUJfancqS6). Please form teams of 2 and fill in [this form](https://forms.gle/e4UXyXrHUJfancqS6). Illinois login is required to fill this form. Due date 12:30PM, Feb 4, 2020.
+- [Part 1](MidtermProject1). Due date 12:30PM, Feb 11, 2020.
 
 ## Policy
 Submissions later than due date will get 0 points.
