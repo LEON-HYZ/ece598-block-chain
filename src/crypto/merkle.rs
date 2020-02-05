@@ -3,20 +3,26 @@ use super::hash::{Hashable, H256};
 /// A Merkle tree.
 #[derive(Debug, Default)]
 pub struct MerkleTree {
+    root: ,
+    left: ,
+    right: ,
 }
 
 impl MerkleTree {
     pub fn new<T>(data: &[T]) -> Self where T: Hashable, {
-        unimplemented!()
+        //unimplemented!()
+        
+
     }
 
     pub fn root(&self) -> H256 {
-        unimplemented!()
+        //unimplemented!()
+        //return **(self.root.as_ref().unwrap());
     }
 
     /// Returns the Merkle Proof of data at index i
     pub fn proof(&self, index: usize) -> Vec<H256> {
-        unimplemented!()
+        //unimplemented!()
     }
 }
 

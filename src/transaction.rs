@@ -1,18 +1,31 @@
 use serde::{Serialize,Deserialize};
 use ring::signature::{Ed25519KeyPair, Signature, KeyPair, VerificationAlgorithm, EdDSAParameters};
+//use rand::{thread_rng, Rng};
+//use rand::distributions::Alphanumeric;
+//use untrusted;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Transaction {
+    Input: String,
+    Output: String,
 }
 
 /// Create digital signature of a transaction
 pub fn sign(t: &Transaction, key: &Ed25519KeyPair) -> Signature {
-    unimplemented!()
+    //unimplemented!()
+    let t_serialized = bincode::serialize(t).unwrap();
+    let t_signature = key.sign(&t_serialized);
+    t_signature
 }
 
 /// Verify digital signature of a transaction, using public key instead of secret key
 pub fn verify(t: &Transaction, public_key: &<Ed25519KeyPair as KeyPair>::PublicKey, signature: &Signature) -> bool {
-    unimplemented!()
+    //unimplemented!()
+    let t_serialized = bincode::serialize(&t).unwrap();
+    let public_key_ = ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public_key.as_ref());
+    if( public_key_.verify(&t_serialized,signature.as_ref()) == Ok(()) ) {   return true;    }
+    else {   return false;   }
+
 }
 
 #[cfg(any(test, test_utilities))]
