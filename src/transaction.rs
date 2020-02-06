@@ -1,11 +1,14 @@
 use serde::{Serialize,Deserialize};
 use ring::signature::{Ed25519KeyPair, Signature, KeyPair, VerificationAlgorithm, EdDSAParameters};
 
+use rand::{thread_rng, Rng};
+use rand::distributions::Alphanumeric;
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Transaction {
     Input: String,
     Output: String,
+    Signature: String,
 }
 
 /// Create digital signature of a transaction
@@ -32,8 +35,21 @@ mod tests {
     use crate::crypto::key_pair;
 
     pub fn generate_random_transaction() -> Transaction {
-        Default::default()
+        //Default::default();
         //unimplemented!()
+        let Input: String = thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .collect();
+
+        let Output: String = thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .collect();
+
+        let Signature = String::from("Hello World");
+
+        return Transaction{Input:Input,Output:Output,Signature:Signature};
     }
 
     #[test]
