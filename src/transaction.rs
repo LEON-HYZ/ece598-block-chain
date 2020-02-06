@@ -1,8 +1,6 @@
 use serde::{Serialize,Deserialize};
 use ring::signature::{Ed25519KeyPair, Signature, KeyPair, VerificationAlgorithm, EdDSAParameters};
-//use rand::{thread_rng, Rng};
-//use rand::distributions::Alphanumeric;
-//use untrusted;
+
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct Transaction {
