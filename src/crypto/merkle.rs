@@ -82,10 +82,27 @@ impl MerkleTree {
         //unimplemented!()
         let mut curNode = self.root.as_ref().unwrap();
         let mut proofVector:Vec<H256> = Vec::new();
-        let mut realIndex = index + 1;
+        let mut realIndex = (index + 1) as i32;
         let mut realHeight = self.height + 1;
-
+        let mut center = (2_i32.pow(realHeight as u32))/2;
+        for i in 1..realHeight {
+            //if curNode.is_none() { break; }
+            let leftNode = curNode.left.as_ref();
+            let rightNode = curNode.right.as_ref();
+            if leftNode.is_none() || rightNode.is_none() { break; }
+            if realIndex > center {
+                proofVector.push(leftNode.unwrap().val); // need left sibling
+                curNode = rightNode.unwrap(); //move to the right
+                center = center + center/2;
+            }
+            else{
+                proofVector.push(rightNode.unwrap().val); // need right sibling
+                curNode = leftNode.unwrap(); //move to the left
+                center = center - center/2;
+            }
+        }
         return proofVector;
+
     }
 }
 
@@ -111,20 +128,20 @@ pub fn verify(root: &H256, datum: &H256, proof: &[H256], index: usize, leaf_size
     let mut realIndex = index + 1;
 
     while proofVector.len() > 0 {
-        if realIndex % 2 == 1 {
-            let left = mydatum.as_ref();
-            let right_temp = proofVector.remove(proofVector.len()-1);
-            let right = right_temp.as_ref();
-            let parentVal = <H256>::from(digest::digest(&digest::SHA256, &([&left[..], &right[..]].concat())));
-            realIndex = (realIndex+1)/2;
-            mydatum = parentVal;
-        }
-        else {
+        if realIndex % 2 == 0 {
             let left_temp = proofVector.remove(proofVector.len()-1);
             let right = mydatum.as_ref();
             let left = left_temp.as_ref();
             let parentVal = <H256>::from(digest::digest(&digest::SHA256, &([&left[..], &right[..]].concat())));
             realIndex = realIndex/2;
+            mydatum = parentVal;
+        }
+        else {
+            let left = mydatum.as_ref();
+            let right_temp = proofVector.remove(proofVector.len()-1);
+            let right = right_temp.as_ref();
+            let parentVal = <H256>::from(digest::digest(&digest::SHA256, &([&left[..], &right[..]].concat())));
+            realIndex = (realIndex+1)/2;
             mydatum = parentVal;
         }
         
