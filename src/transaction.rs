@@ -32,7 +32,7 @@ pub fn verify(t: &Transaction, public_key: &<Ed25519KeyPair as KeyPair>::PublicK
 
 
 #[cfg(any(test, test_utilities))]
-mod tests {
+pub mod tests {
     use super::*;
     use crate::crypto::key_pair;
 

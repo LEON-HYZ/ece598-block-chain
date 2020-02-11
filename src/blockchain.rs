@@ -7,6 +7,7 @@ use std::collections::HashMap;
 
 pub struct Blockchain {
      Blocks: HashMap<H256,Block>,
+     genesis_hash: H256,
      tip: H256,
 }
 
@@ -20,7 +21,7 @@ impl Blockchain {
         let block = generate_random_block(&genesis_hash);
         Blocks.insert(genesis_hash,block);
         let tip = genesis_hash;
-        return Blockchain {Blocks: Blocks, tip: tip};
+        return Blockchain {Blocks: Blocks,genesis_hash:genesis_hash, tip: tip};
     }
 
     /// Insert a block into blockchain
@@ -38,7 +39,14 @@ impl Blockchain {
     /// Get the last block's hash of the longest chain
     #[cfg(any(test, test_utilities))]
     pub fn all_blocks_in_longest_chain(&self) -> Vec<H256> {
-        unimplemented!()
+        let mut blockLists = Vec::<H256>::new();
+        let mut hash = self.tip;
+        while hash != self.genesis_hash {
+            blockLists.push(hash);
+            hash = (self.Blocks.get(&hash)).as_ref().unwrap().hash();
+        }
+        blockLists.push(self.genesis_hash);
+        return blockLists;
     }
 }
 
@@ -52,7 +60,10 @@ mod tests {
     fn insert_one() {
         let mut blockchain = Blockchain::new();
         let genesis_hash = blockchain.tip();
+        println!("genesis_hash:{:?}", genesis_hash);
+        println!("tip1:{:?}", blockchain.tip);
         let block = generate_random_block(&genesis_hash);
+        println!("tip2:{:?}", blockchain.tip);
         blockchain.insert(&block);
         assert_eq!(blockchain.tip(), block.hash());
     }
