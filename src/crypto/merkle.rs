@@ -23,8 +23,8 @@ pub struct MerkleTree {
 impl MerkleTree {
     pub fn new<T>(data: &[T]) -> Self where T: Hashable, {
         //unimplemented!()
-        let mut length = data.len();
-        let mut height = getHeight(length);
+        let length = data.len();
+        let height = getHeight(length);
 
         if length == 0 { return MerkleTree{ root:None ,length:length , height:height}; }
         
@@ -82,8 +82,8 @@ impl MerkleTree {
         //unimplemented!()
         let mut curNode = self.root.as_ref().unwrap();
         let mut proofVector:Vec<H256> = Vec::new();
-        let mut realIndex = (index + 1) as i32;
-        let mut realHeight = self.height + 1;
+        let realIndex = (index + 1) as i32;
+        let realHeight = self.height + 1;
         let mut center = (2_i32.pow(realHeight as u32))/2;
         for i in 1..realHeight {
             //if curNode.is_none() { break; }

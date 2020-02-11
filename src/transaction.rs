@@ -1,5 +1,6 @@
 use serde::{Serialize,Deserialize};
 use ring::signature::{Ed25519KeyPair, Signature, KeyPair, VerificationAlgorithm, EdDSAParameters};
+use crate::crypto::hash::{H256, Hashable};
 
 use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
@@ -24,10 +25,11 @@ pub fn verify(t: &Transaction, public_key: &<Ed25519KeyPair as KeyPair>::PublicK
     //unimplemented!()
     let t_serialized = bincode::serialize(&t).unwrap();
     let public_key_ = ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public_key.as_ref());
-    if( public_key_.verify(&t_serialized,signature.as_ref()) == Ok(()) ) {   return true;    }
+    if public_key_.verify(&t_serialized,signature.as_ref()) == Ok(())  {   return true;    }
     else {   return false;   }
 
 }
+
 
 #[cfg(any(test, test_utilities))]
 mod tests {
