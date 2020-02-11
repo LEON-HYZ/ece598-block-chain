@@ -5,7 +5,7 @@ use crate::crypto::hash::{H256, Hashable};
 use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
 
-#[derive(Serialize, Deserialize, Debug, Default)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Transaction {
     Input: String,
     Output: String,

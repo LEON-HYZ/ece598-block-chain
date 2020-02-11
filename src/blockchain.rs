@@ -25,8 +25,8 @@ impl Blockchain {
 
     /// Insert a block into blockchain
     pub fn insert(&mut self, block: &Block) {
-
-        self.Blocks.insert(block.hash(), *block);
+        let lblock = block.clone();
+        self.Blocks.insert(block.hash(), lblock);
         self.tip = block.hash();
     }
 

@@ -9,7 +9,7 @@ use ring::{digest};
 use std::time::{Duration, SystemTime};
 use chrono::prelude::*;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Header {
     parent: H256,
     nonce: u32,
@@ -18,12 +18,12 @@ pub struct Header {
     merkleRoot: H256,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Content {
     content: Vec<Transaction>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
 	Header: Option<Box<Header>>,
     Content: Option<Box<Content>>,
