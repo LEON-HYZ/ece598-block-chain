@@ -45,6 +45,12 @@ impl Hashable for Transaction {
     }
 }
 
+impl Block{
+        pub fn getparent(&self) -> H256 {
+        self.Header.as_ref().unwrap().parent
+    }
+}
+
 pub fn timestamp() -> i64 {
     let now = Utc::now();
     now.timestamp_millis()
@@ -64,7 +70,7 @@ pub mod test {
     	transaction.push(generate_random_transaction());
     	let mut MerkleTree = MerkleTree::new(&transaction);
 
-    	
+
 
         let newHeader = Header{
         	parent: *parent,
