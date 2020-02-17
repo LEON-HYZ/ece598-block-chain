@@ -30,6 +30,23 @@ pub fn verify(t: &Transaction, public_key: &<Ed25519KeyPair as KeyPair>::PublicK
 
 }
 
+pub fn generate_random_transaction_() -> Transaction {
+        //Default::default();
+        //unimplemented!()
+        let Input: String = thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .collect();
+
+        let Output: String = thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(30)
+        .collect();
+
+        let Signature = String::from("Hello World");
+
+        return Transaction{Input:Input,Output:Output,Signature:Signature};
+    }
 
 #[cfg(any(test, test_utilities))]
 pub mod tests {

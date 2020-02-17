@@ -1,6 +1,6 @@
 use crate::block::Block;
 use crate::crypto::hash::{H256,Hashable};
-use crate::block::test::generate_random_block;
+use crate::block::generate_random_block_;
 use ring::{digest};
 
 use std::collections::HashMap;
@@ -18,7 +18,7 @@ impl Blockchain {
     pub fn new() -> Self {
         let mut Blocks:HashMap<H256,(Block, u8)> = HashMap::new();
         let genesis_hash = <H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8]));
-        let block = generate_random_block(&genesis_hash);
+        let block = generate_random_block_(&genesis_hash);
         Blocks.insert(genesis_hash,(block, 0));
         let tip = (genesis_hash, 0);
         return Blockchain {Blocks: Blocks,genesis_hash:genesis_hash, tip: tip};
@@ -26,9 +26,9 @@ impl Blockchain {
 
     /// Insert a block into blockchain
     pub fn insert(&mut self, block: &Block) {
-        let lblock = block.clone();
-        let h = self.Blocks.get(&(lblock.getparent())).as_ref().unwrap().1 + 1;
-        self.Blocks.insert(block.hash(), (lblock, h));
+        let last_block = block.clone();
+        let h = self.Blocks.get(&(last_block.getparent())).as_ref().unwrap().1 + 1;
+        self.Blocks.insert(block.hash(), (last_block, h));
         if self.tip.1 < h{
             self.tip = (block.hash(), h);
         }
@@ -53,6 +53,8 @@ impl Blockchain {
         return blockLists;
     }
 }
+
+
 
 #[cfg(any(test, test_utilities))]
 mod tests {
