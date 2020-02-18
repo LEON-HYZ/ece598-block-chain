@@ -1,4 +1,6 @@
 use crate::network::server::Handle as ServerHandle;
+use std::sync::{Arc, Mutex};
+use crate::blockchain::Blockchain;
 
 use log::info;
 
@@ -20,6 +22,7 @@ enum OperatingState {
 
 pub struct Context {
     /// Channel for receiving control signal
+    blockchain: Arc<Mutex<Blockchain>>,
     control_chan: Receiver<ControlSignal>,
     operating_state: OperatingState,
     server: ServerHandle,
@@ -33,10 +36,12 @@ pub struct Handle {
 
 pub fn new(
     server: &ServerHandle,
+    blockchain: &Arc<Mutex<Blockchain>>,
 ) -> (Context, Handle) {
     let (signal_chan_sender, signal_chan_receiver) = unbounded();
 
     let ctx = Context {
+        blockchain: Arc::clone(blockchain),
         control_chan: signal_chan_receiver,
         operating_state: OperatingState::Paused,
         server: server.clone(),
