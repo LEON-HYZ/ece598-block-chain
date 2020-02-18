@@ -28,7 +28,7 @@ impl MerkleTree {
 
         if length == 0 { return MerkleTree{ root:None ,length:length , height:height}; }
         
-        println!("height:{}, length:{}", height, length );
+        //println!("height:{}, length:{}", height, length );
 
         let mut leafNodes = Vec::with_capacity(length);
         //insert leaf nodes fisrt
@@ -58,12 +58,12 @@ impl MerkleTree {
                 let parentNode = TreeNode{val: parentNodeVal ,left:Some(Box::new(leftNode)),right:Some(Box::new(rightNode))};
                 
                 TreeNodes.push(parentNode);
-                println!("{:?}",childrenNodes.len() );
+                //println!("{:?}",childrenNodes.len() );
 
             }
             childrenNodes = TreeNodes;
             curLength = childrenNodes.len();
-            println!("curLength:{}", curLength );
+            //println!("curLength:{}", curLength );
         }
         let root = childrenNodes.remove(0);
         //let leftSub = **(&root.left).as_ref().unwrap();

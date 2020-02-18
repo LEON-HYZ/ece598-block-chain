@@ -8,7 +8,7 @@ use std::collections::HashMap;
 pub struct Blockchain {
      Blocks: HashMap<H256,(Block, u8)>, //H256 - <Block,Height>
      genesis_hash: H256,
-     tip: (H256, u8),
+     pub tip: (H256, u8),
 }
 
 

@@ -9,27 +9,28 @@ use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
 use ring::{digest};
 
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use chrono::prelude::*;
+
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Header {
-    parent: H256,
-    nonce: u32,
-    difficulty: H256,
-    timestamp: i64,
-    merkleRoot: H256,
+    pub parent: H256,
+    pub nonce: u32,
+    pub difficulty: H256,
+    pub timestamp: u128,
+    pub merkleRoot: H256,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Content {
-    content: Vec<Transaction>,
+    pub content: Vec<Transaction>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
-	Header: Header,
-    Content: Content,
+	pub Header: Header,
+    pub Content: Content,
 }
 
 impl Hashable for Block {
@@ -52,14 +53,10 @@ impl Block{
     }
 }
 
-pub fn timestamp() -> i64 {
-    let now = Utc::now();
-    now.timestamp_millis()
-}
 
 pub fn generate_random_block_(parent: &H256) -> Block {
         let mut nonce:u32 = thread_rng().gen();
-        let mut timestamp = timestamp();
+        let mut timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
         let mut difficulty = <H256>::from(digest::digest(&digest::SHA256, b"difficulty"));
         let mut transaction = Vec::<Transaction>::new();
         transaction.push(generate_random_transaction_());
@@ -95,7 +92,7 @@ pub mod test {
 
     pub fn generate_random_block(parent: &H256) -> Block {
     	let mut nonce:u32 = thread_rng().gen();
-    	let mut timestamp = timestamp();
+    	let mut timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
     	let mut difficulty = <H256>::from(digest::digest(&digest::SHA256, b"difficulty"));
     	let mut transaction = Vec::<Transaction>::new();
     	transaction.push(generate_random_transaction());

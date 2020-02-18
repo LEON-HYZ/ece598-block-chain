@@ -1,4 +1,4 @@
-#[cfg(test)]
+//#[cfg(test)]
 #[macro_use]
 extern crate hex_literal;
 

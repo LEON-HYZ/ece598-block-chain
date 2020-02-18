@@ -1,12 +1,18 @@
 use crate::network::server::Handle as ServerHandle;
 use std::sync::{Arc, Mutex};
+use crate::crypto::hash::{H256, Hashable};
 use crate::blockchain::Blockchain;
 use crate::block::{Block,Header,Content};
+use crate::crypto::merkle::{MerkleTree};
+use crate::transaction::{Transaction,generate_random_transaction_};
+use rand::{thread_rng, Rng};
+use ring::{digest};
 
 use log::info;
 
 use crossbeam::channel::{unbounded, Receiver, Sender, TryRecvError};
 use std::time;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use std::thread;
 
@@ -118,8 +124,39 @@ impl Context {
             }
 
             // TODO: actual mining
-            let blockchain = Arc::clone(&self.blockchain);
+            let mut blockchain = self.blockchain.lock().unwrap();
 
+            let nonce:u32 = thread_rng().gen();
+            let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
+
+            let difficulty : H256 = (hex!("1000000000000000000000000000000000000000000000000000000000000000")).into();
+            let mut transaction = Vec::<Transaction>::new();
+            transaction.push(generate_random_transaction_());
+            let mut MerkleTree = MerkleTree::new(&transaction);
+
+            let newContent = Content{
+                content: transaction,
+            };
+
+            let newHeader = Header{
+                parent: blockchain.tip(),
+                nonce:  nonce,
+                difficulty: difficulty,
+                timestamp:  timestamp,
+                merkleRoot: MerkleTree.root(),
+            };
+
+            let newBlock = Block{
+                Header: newHeader,
+                Content: newContent,
+            };
+            println!("Current height of blockchain{:?}", blockchain.tip.1);
+
+            println!("Current tip:{:?}", blockchain.tip() );
+
+            if newBlock.hash() <= difficulty {
+                blockchain.insert(&newBlock);
+            }
 
             if let OperatingState::Run(i) = self.operating_state {
                 if i != 0 {
