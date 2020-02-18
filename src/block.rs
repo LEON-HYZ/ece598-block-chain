@@ -28,14 +28,13 @@ pub struct Content {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Block {
-	Header: Option<Box<Header>>,
-    Content: Option<Box<Content>>,
+	Header: Header,
+    Content: Content,
 }
 
 impl Hashable for Block {
     fn hash(&self) -> H256 {
-        let header = self.Header.as_ref().unwrap();
-        let header_serialized = bincode::serialize(&header).unwrap();
+        let header_serialized = bincode::serialize(&self.Header).unwrap();
         return ring::digest::digest(&ring::digest::SHA256, &header_serialized).into();
     }
 }
@@ -49,7 +48,7 @@ impl Hashable for Transaction {
 
 impl Block{
         pub fn getparent(&self) -> H256 {
-        self.Header.as_ref().unwrap().parent
+        self.Header.parent
     }
 }
 
@@ -81,8 +80,8 @@ pub fn generate_random_block_(parent: &H256) -> Block {
         };
 
         let newBlock = Block{
-            Header: Some(Box::new(newHeader)),
-            Content: Some(Box::new(newContent)),
+            Header: newHeader,
+            Content: newContent,
         };
 
         return newBlock;
@@ -117,8 +116,8 @@ pub mod test {
         };
 
         let newBlock = Block{
-        	Header: Some(Box::new(newHeader)),
-    		Content: Some(Box::new(newContent)),
+        	Header: newHeader,
+    		Content: newContent,
         };
 
         return newBlock;

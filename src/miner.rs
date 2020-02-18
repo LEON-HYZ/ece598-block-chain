@@ -1,6 +1,7 @@
 use crate::network::server::Handle as ServerHandle;
 use std::sync::{Arc, Mutex};
 use crate::blockchain::Blockchain;
+use crate::block::{Block,Header,Content};
 
 use log::info;
 
@@ -117,6 +118,8 @@ impl Context {
             }
 
             // TODO: actual mining
+            let blockchain = Arc::clone(&self.blockchain);
+
 
             if let OperatingState::Run(i) = self.operating_state {
                 if i != 0 {
