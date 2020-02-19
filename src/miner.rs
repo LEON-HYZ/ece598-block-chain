@@ -129,7 +129,11 @@ impl Context {
             let nonce:u32 = thread_rng().gen();
             let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
 
-            let difficulty : H256 = (hex!("1000000000000000000000000000000000000000000000000000000000000000")).into();
+            // let difficulty : H256 = (hex!("1000000000000000000000000000000000000000000000000000000000000000")).into();
+            let mut bytes32 = [255u8;32];
+            bytes32[0]=0;
+            bytes32[1]=1;
+            let difficulty : H256 = bytes32.into();
             let mut transaction = Vec::<Transaction>::new();
             transaction.push(generate_random_transaction_());
             let mut MerkleTree = MerkleTree::new(&transaction);
