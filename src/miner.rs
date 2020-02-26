@@ -136,7 +136,7 @@ impl Context {
             //let difficulty = <H256>::from(rand_u8);
             let mut bytes32 = [255u8;32];
             bytes32[0]=0;
-            bytes32[1]=10;
+            bytes32[1]=1;
             let difficulty : H256 = bytes32.into();
             let mut transaction = Vec::<Transaction>::new();
             transaction.push(generate_random_transaction_());

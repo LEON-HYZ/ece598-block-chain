@@ -60,12 +60,14 @@ impl Context {
                 Message::Pong(nonce) => {
                     debug!("Pong: {}", nonce);
                 }
-                Message::NewBlockHashes(hashes) =>{
-                    debug!("NewBlockHashes: {:?}", hashes);
+                Message::NewBlockHashes(hashes) => {
+                    //debug!("NewBlockHashes: {:?}", hashes);
+                    self.server.broadcast(Message::NewBlockHashes(hashes.clone()));
                     let mut notContainedHashes = Vec::<H256>::new();
+                    let mut blockchain = self.blockchain.lock().unwrap();
                     if hashes.len() != 0 {
                         for hash in hashes.iter() {
-                            if self.blockchain.lock().unwrap().Blocks.get(&hash).is_none() {
+                            if blockchain.Blocks.get(&hash).is_none() {
                                 notContainedHashes.push(*hash);
                             }
                         }
@@ -73,18 +75,20 @@ impl Context {
                     if notContainedHashes.len() != 0 {
                         peer.write(Message::GetBlocks(notContainedHashes));
                     }
+                    
                 }
 
                 Message::GetBlocks(hashes) => {
-                    debug!("GetBlocks: {:?}", hashes);
+                    //debug!("GetBlocks: {:?}", hashes);
                     let mut notContainedBlocks = Vec::<Block>::new();
                     let mut hashes = hashes.clone();
+                    let mut blockchain = self.blockchain.lock().unwrap();
                     if hashes.len() != 0 {
                         for hash in hashes.iter() {
-                            //if self.blockchain.lock().unwrap().Blocks.get(&hash).is_none() {
-                            let block = self.blockchain.lock().unwrap().Blocks.get(&hash).unwrap().0.clone();
-                            notContainedBlocks.push(block);
-                            //}
+                            if !blockchain.Blocks.get(&hash).is_none(){
+                                let block = blockchain.Blocks.get(&hash).unwrap().0.clone();
+                                notContainedBlocks.push(block);
+                            }
                         }
                     }
                     if notContainedBlocks.len() != 0 {
@@ -94,14 +98,13 @@ impl Context {
                 }
 
                 Message::Blocks(blocks) => {
-                    debug!("Blocks: {:?}", blocks);
+                    //debug!("Blocks: {:?}", blocks);
                     let mut blocks = blocks.clone();
+                    let mut blockchain = self.blockchain.lock().unwrap();
                     for block in blocks.iter() {
-                        //if self.blockchain.lock().unwrap().Blocks.get(&block.hash()).is_none() {
-                        self.blockchain.lock().unwrap().insert(&block);
-                        //}
+                        blockchain.insert(&block);
                     }
-                    println!("Current height of worker blockchain: {:?}", self.blockchain.lock().unwrap().tip.1);
+                    println!("Current height of worker blockchain: {:?}", blockchain.tip.1);
                 }
 
             }
