@@ -104,6 +104,8 @@ impl Context {
                     for block in blocks.iter() {
                         blockchain.insert(&block);
                     }
+
+                    println!("Current height of blockchain: {:?}", blockchain.tip.1);
                     self.server.broadcast(Message::NewBlockHashes(blockchain.all_blocks_in_longest_chain()));
                     //println!("Current height of worker blockchain: {:?}", blockchain.tip.1);
                 }

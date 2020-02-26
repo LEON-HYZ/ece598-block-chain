@@ -101,6 +101,7 @@ impl Context {
     }
 
     fn miner_loop(&mut self) {
+        let mut miner_counter:i32 = 0;
         // main mining loop
         loop {
             // check and react to control signals
@@ -165,7 +166,9 @@ impl Context {
 
             if newBlock.hash() <= difficulty {
                 self.blockchain.lock().unwrap().insert(&newBlock);
-                println!("Current height of miner blockchain: {:?}", self.blockchain.lock().unwrap().tip.1);
+                miner_counter += 1;
+                println!("Current miner counter: {:?}", miner_counter);
+                println!("Current height of blockchain: {:?}", self.blockchain.lock().unwrap().tip.1);
 
                 //println!("Current tip: {:?}", blockchain.tip() );
                 self.server.broadcast(Message::NewBlockHashes(self.blockchain.lock().unwrap().all_blocks_in_longest_chain()));
