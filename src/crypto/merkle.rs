@@ -112,7 +112,7 @@ pub fn getHeight(mut length:usize) -> usize {
             height += 1;
             if length % 2 == 0 { //even number of nodes for this level
                 length /= 2;
-            }else { //old number of nodes for this level
+            }else { //odd number of nodes for this level
                 length = ( length + 1 ) / 2;
             }
         }

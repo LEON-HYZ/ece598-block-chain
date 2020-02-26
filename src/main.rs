@@ -65,6 +65,8 @@ fn main() {
     let (server_ctx, server) = server::new(p2p_addr, msg_tx).unwrap();
     server_ctx.start().unwrap();
 
+
+
     // start the worker
     let p2p_workers = matches
         .value_of("p2p_workers")
@@ -74,16 +76,20 @@ fn main() {
             error!("Error parsing P2P workers: {}", e);
             process::exit(1);
         });
+
+        //create new blockchain
+    let mut new_blockchain = blockchain::Blockchain::new();
+    let blockchain = Arc::new(Mutex::new(new_blockchain));
+    
     let worker_ctx = worker::new(
+        &blockchain,
         p2p_workers,
         msg_rx,
         &server,
     );
     worker_ctx.start();
 
-    //create new blockchain
-    let mut new_blockchain = blockchain::Blockchain::new();
-    let blockchain = Arc::new(Mutex::new(new_blockchain));
+    
 
     // start the miner
     let (miner_ctx, miner) = miner::new(

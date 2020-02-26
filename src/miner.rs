@@ -1,5 +1,7 @@
+use crate::network::message::{Message};
 use crate::network::server::Handle as ServerHandle;
 use std::sync::{Arc, Mutex};
+
 use crate::crypto::hash::{H256, Hashable};
 use crate::blockchain::Blockchain;
 use crate::block::{Block,Header,Content};
@@ -124,15 +126,17 @@ impl Context {
             }
 
             // TODO: actual mining
-            let mut blockchain = self.blockchain.lock().unwrap();
+            //let mut blockchain = self.blockchain.lock().unwrap();
 
             let nonce:u32 = thread_rng().gen();
             let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
 
-            // let difficulty : H256 = (hex!("1000000000000000000000000000000000000000000000000000000000000000")).into();
+            //let difficulty : H256 = (hex!("1100000A00000000000000000000000000000000000000000000000000000000")).into();
+            //let rand_u8 = digest::digest(&digest::SHA256,"442cabd17e40d95ac0932d977c0759397b9db4d93c4d62c368b95419db574db0".as_bytes());
+            //let difficulty = <H256>::from(rand_u8);
             let mut bytes32 = [255u8;32];
             bytes32[0]=0;
-            bytes32[1]=1;
+            bytes32[1]=10;
             let difficulty : H256 = bytes32.into();
             let mut transaction = Vec::<Transaction>::new();
             transaction.push(generate_random_transaction_());
@@ -143,7 +147,7 @@ impl Context {
             };
 
             let newHeader = Header{
-                parent: blockchain.tip(),
+                parent: self.blockchain.lock().unwrap().tip(),
                 nonce:  nonce,
                 difficulty: difficulty,
                 timestamp:  timestamp,
@@ -154,12 +158,17 @@ impl Context {
                 Header: newHeader,
                 Content: newContent,
             };
-            println!("Current height of blockchain{:?}", blockchain.tip.1);
+            
 
-            println!("Current tip:{:?}", blockchain.tip() );
+            //println!("blockchain: {:?}", self.blockchain.lock().unwrap().all_blocks_in_longest_chain());
+
 
             if newBlock.hash() <= difficulty {
-                blockchain.insert(&newBlock);
+                self.blockchain.lock().unwrap().insert(&newBlock);
+                println!("Current height of miner blockchain: {:?}", self.blockchain.lock().unwrap().tip.1);
+
+                //println!("Current tip: {:?}", blockchain.tip() );
+                self.server.broadcast(Message::NewBlockHashes(self.blockchain.lock().unwrap().all_blocks_in_longest_chain()));
             }
 
             if let OperatingState::Run(i) = self.operating_state {

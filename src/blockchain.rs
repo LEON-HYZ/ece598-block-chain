@@ -6,9 +6,9 @@ use ring::{digest};
 use std::collections::HashMap;
 
 pub struct Blockchain {
-     Blocks: HashMap<H256,(Block, u8)>, //H256 - <Block,Height>
-     genesis_hash: H256,
-     pub tip: (H256, u8),
+     pub Blocks: HashMap<H256,(Block, u32)>, //H256 - <Block,Height>
+     pub genesis_hash: H256,
+     pub tip: (H256, u32),
 }
 
 
@@ -16,7 +16,7 @@ pub struct Blockchain {
 impl Blockchain {
     /// Create a new blockchain, only containing the genesis block
     pub fn new() -> Self {
-        let mut Blocks:HashMap<H256,(Block, u8)> = HashMap::new();
+        let mut Blocks:HashMap<H256,(Block, u32)> = HashMap::new();
         let genesis_hash = <H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8]));
         let block = generate_random_block_(&genesis_hash);
         Blocks.insert(genesis_hash,(block, 0));
@@ -41,15 +41,18 @@ impl Blockchain {
     }
 
     /// Get the last block's hash of the longest chain
-    #[cfg(any(test, test_utilities))]
+    //#[cfg(any(test, test_utilities))]
     pub fn all_blocks_in_longest_chain(&self) -> Vec<H256> {
         let mut blockLists = Vec::<H256>::new();
         let mut hash = self.tip.0;
-        while hash != self.genesis_hash {
-            blockLists.push(hash);
-            hash = (self.Blocks.get(&hash).as_ref().unwrap().0).hash();
+        let mut height = self.tip.1;
+        while height != 0 {
+            blockLists.insert(0,hash);
+            let parentHash = self.Blocks.get(&hash).as_ref().unwrap().0.getparent();
+            hash = parentHash;
+            height = self.Blocks.get(&hash).as_ref().unwrap().1;
         }
-        blockLists.push(self.genesis_hash);
+        blockLists.insert(0,self.genesis_hash);
         return blockLists;
     }
 }
