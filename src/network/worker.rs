@@ -62,7 +62,7 @@ impl Context {
                 }
                 Message::NewBlockHashes(hashes) => {
                     //debug!("NewBlockHashes: {:?}", hashes);
-                    self.server.broadcast(Message::NewBlockHashes(hashes.clone()));
+                    //self.server.broadcast(Message::NewBlockHashes(hashes.clone()));
                     let mut notContainedHashes = Vec::<H256>::new();
                     let mut blockchain = self.blockchain.lock().unwrap();
                     if hashes.len() != 0 {
@@ -104,7 +104,8 @@ impl Context {
                     for block in blocks.iter() {
                         blockchain.insert(&block);
                     }
-                    println!("Current height of worker blockchain: {:?}", blockchain.tip.1);
+                    self.server.broadcast(Message::NewBlockHashes(blockchain.all_blocks_in_longest_chain()));
+                    //println!("Current height of worker blockchain: {:?}", blockchain.tip.1);
                 }
 
             }
