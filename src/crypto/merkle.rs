@@ -4,14 +4,14 @@ use ring::{digest};
 /// A Merkle tree.
 //Use Option<Box<>> for Tree implementation
 //Tree implementation reference: https://gist.github.com/aidanhs/5ac9088ca0f6bdd4a370
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct TreeNode {
     val: H256,
     left: Option<Box<TreeNode>>,
     right: Option<Box<TreeNode>>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct MerkleTree {
     root: Option<Box<TreeNode>>,
     length: usize,
@@ -34,32 +34,35 @@ impl MerkleTree {
         //insert leaf nodes fisrt
         for elem in data{
             leafNodes.push(TreeNode{val:elem.hash(),left:None,right:None});
+            println!("children: {:?}", elem.hash());
         }
         if length % 2 == 1 {
             leafNodes.push(TreeNode{val:leafNodes[length-1].val,left:None,right:None});
         }
         //build tree
-        let mut childrenNodes = leafNodes;
+        let mut childrenNodes = leafNodes.clone();
         let mut curLength = childrenNodes.len();
         while curLength > 1 {
             
             let mut TreeNodes:Vec<TreeNode> = Vec::new();
+
+            if curLength % 2 == 1 {
+                leafNodes.push(TreeNode{val:leafNodes[curLength-1].val,left:leafNodes[curLength-1].left.clone(),right:leafNodes[curLength-1].right.clone()});
+            }
+
             while childrenNodes.len() > 0 {
-                if childrenNodes.len() == 1 {
-                    let tempNode = childrenNodes.remove(0);
-                    TreeNodes.push(tempNode);
-                }
+            
                 let leftNode = childrenNodes.remove(0);
                 let leftNodeVal = (leftNode.val).as_ref();
                 let rightNode = childrenNodes.remove(0);
                 let rightNodeVal = (rightNode.val).as_ref();
 
                 let parentNodeVal = <H256>::from(digest::digest(&digest::SHA256, &([&leftNodeVal[..], &rightNodeVal[..]].concat())));
+                println!("parent: {:?}, left: {:?}, right:{:?}", parentNodeVal,leftNode.val,rightNode.val);
                 let parentNode = TreeNode{val: parentNodeVal ,left:Some(Box::new(leftNode)),right:Some(Box::new(rightNode))};
-                
+            
                 TreeNodes.push(parentNode);
-                //println!("{:?}",childrenNodes.len() );
-
+                
             }
             childrenNodes = TreeNodes;
             curLength = childrenNodes.len();
@@ -81,27 +84,32 @@ impl MerkleTree {
     pub fn proof(&self, index: usize) -> Vec<H256> {
         //unimplemented!()
         let mut curNode = self.root.as_ref().unwrap();
-        let mut proofVector:Vec<H256> = Vec::new();
+        let mut proofVec:Vec<H256> = Vec::new();
         let realIndex = (index + 1) as i32;
-        let realHeight = self.height + 1;
+        let realHeight = self.height;
+        println!("height: {:?}", realHeight);
         let mut center = (2_i32.pow(realHeight as u32))/2;
-        for i in 1..realHeight {
+        let mut oriCenter = center;
+        for i in 0..realHeight {
             //if curNode.is_none() { break; }
             let leftNode = curNode.left.as_ref();
             let rightNode = curNode.right.as_ref();
             if leftNode.is_none() || rightNode.is_none() { break; }
+            //println!("index: {:?}, center: {:?}", realIndex,center);
             if realIndex > center {
-                proofVector.push(leftNode.unwrap().val); // need left sibling
+                proofVec.push(leftNode.unwrap().val); // need left sibling
                 curNode = rightNode.unwrap(); //move to the right
-                center = center + center/2;
+                center = center + oriCenter/2
             }
             else{
-                proofVector.push(rightNode.unwrap().val); // need right sibling
+                proofVec.push(rightNode.unwrap().val); // need right sibling
                 curNode = leftNode.unwrap(); //move to the left
-                center = center - center/2;
+                center = center - oriCenter/2;
             }
+            oriCenter = oriCenter/2;
         }
-        return proofVector;
+        println!("{:?}", proofVec);
+        return proofVec;
 
     }
 }
@@ -124,23 +132,25 @@ pub fn getHeight(mut length:usize) -> usize {
 pub fn verify(root: &H256, datum: &H256, proof: &[H256], index: usize, leaf_size: usize) -> bool {
     //unimplemented!()
     let mut mydatum = datum.clone();
-    let mut proofVector = Vec::from(proof.clone());
+    let mut proofVec = Vec::from(proof.clone());
     let mut realIndex = index + 1;
 
-    while proofVector.len() > 0 {
+    while proofVec.len() > 0 {
         if realIndex % 2 == 0 {
-            let left_temp = proofVector.remove(proofVector.len()-1);
+            let left_temp = proofVec.remove(proofVec.len()-1);
             let right = mydatum.as_ref();
             let left = left_temp.as_ref();
             let parentVal = <H256>::from(digest::digest(&digest::SHA256, &([&left[..], &right[..]].concat())));
+            println!("verified parent: {:?}", parentVal);
             realIndex = realIndex/2;
             mydatum = parentVal;
         }
         else {
             let left = mydatum.as_ref();
-            let right_temp = proofVector.remove(proofVector.len()-1);
+            let right_temp = proofVec.remove(proofVec.len()-1);
             let right = right_temp.as_ref();
             let parentVal = <H256>::from(digest::digest(&digest::SHA256, &([&left[..], &right[..]].concat())));
+            println!("verified parent: {:?}", parentVal);
             realIndex = (realIndex+1)/2;
             mydatum = parentVal;
         }
@@ -201,5 +211,75 @@ mod tests {
         let merkle_tree = MerkleTree::new(&input_data);
         let proof = merkle_tree.proof(0);
         assert!(verify(&merkle_tree.root(), &input_data[0].hash(), &proof, 0, input_data.len()));
+    }
+
+    macro_rules! gen_merkle_tree_assignment2 {
+        () => {{
+            vec![
+                (hex!("0000000000000000000000000000000000000000000000000000000000000011")).into(),
+                (hex!("0000000000000000000000000000000000000000000000000000000000000022")).into(),
+                (hex!("0000000000000000000000000000000000000000000000000000000000000033")).into(),
+                (hex!("0000000000000000000000000000000000000000000000000000000000000044")).into(),
+                (hex!("0000000000000000000000000000000000000000000000000000000000000055")).into(),
+                (hex!("0000000000000000000000000000000000000000000000000000000000000066")).into(),
+                (hex!("0000000000000000000000000000000000000000000000000000000000000077")).into(),
+                (hex!("0000000000000000000000000000000000000000000000000000000000000088")).into(),
+            ]
+        }};
+    }
+
+    macro_rules! gen_merkle_tree_assignment2_another {
+        () => {{
+            vec![
+                (hex!("1000000000000000000000000000000000000000000000000000000000000088")).into(),
+                (hex!("2000000000000000000000000000000000000000000000000000000000000077")).into(),
+                (hex!("3000000000000000000000000000000000000000000000000000000000000066")).into(),
+                (hex!("4000000000000000000000000000000000000000000000000000000000000055")).into(),
+                (hex!("5000000000000000000000000000000000000000000000000000000000000044")).into(),
+                (hex!("6000000000000000000000000000000000000000000000000000000000000033")).into(),
+                (hex!("7000000000000000000000000000000000000000000000000000000000000022")).into(),
+                (hex!("8000000000000000000000000000000000000000000000000000000000000011")).into(),
+            ]
+        }};
+    }
+
+    #[test]
+    fn assignment2_merkle_root() {
+        let input_data: Vec<H256> = gen_merkle_tree_assignment2!();
+        let merkle_tree = MerkleTree::new(&input_data);
+        let root = merkle_tree.root();
+        assert_eq!(
+            root,
+            (hex!("6e18c8441bc8b0d1f0d4dc442c0d82ff2b4f38e2d7ca487c92e6db435d820a10")).into()
+        );
+    }
+
+    #[test]
+    fn assignment2_merkle_verify() {
+        let input_data: Vec<H256> = gen_merkle_tree_assignment2!();
+        let merkle_tree = MerkleTree::new(&input_data);
+        for i in 0.. input_data.len() {
+            let proof = merkle_tree.proof(i);
+            println!("test index: {:?}", i);
+            assert!(verify(&merkle_tree.root(), &input_data[i].hash(), &proof, i, input_data.len()));
+        }
+        let input_data_2: Vec<H256> = gen_merkle_tree_assignment2_another!();
+        let merkle_tree_2 = MerkleTree::new(&input_data_2);
+        assert!(!verify(&merkle_tree.root(), &input_data[0].hash(), &merkle_tree_2.proof(0), 0, input_data.len()));
+    }
+
+    #[test]
+    fn assignment2_merkle_proof() {
+        use std::collections::HashSet;
+        let input_data: Vec<H256> = gen_merkle_tree_assignment2!();
+        let merkle_tree = MerkleTree::new(&input_data);
+        let proof = merkle_tree.proof(5);
+        let proof: HashSet<H256> = proof.into_iter().collect();
+        let p: H256 = (hex!("c8c37c89fcc6ee7f5e8237d2b7ed8c17640c154f8d7751c774719b2b82040c76")).into();
+        assert!(proof.contains(&p));
+        let p: H256 = (hex!("bada70a695501195fb5ad950a5a41c02c0f9c449a918937267710a0425151b77")).into();
+        assert!(proof.contains(&p));
+        let p: H256 = (hex!("1e28fb71415f259bd4b0b3b98d67a1240b4f3bed5923aa222c5fdbd97c8fb002")).into();
+        assert!(proof.contains(&p));
     }
 }

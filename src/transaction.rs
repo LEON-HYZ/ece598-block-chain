@@ -78,4 +78,22 @@ pub mod tests {
         let signature = sign(&t, &key);
         assert!(verify(&t, &(key.public_key()), &signature));
     }
+
+    #[test]    
+    fn assignment2_transaction_1() {    
+        let t = generate_random_transaction();    
+        let key = key_pair::random();    
+        let signature = sign(&t, &key);    
+        assert!(verify(&t, &(key.public_key()), &signature));    
+    }    
+    #[test]    
+    fn assignment2_transaction_2() {    
+        let t = generate_random_transaction();    
+        let key = key_pair::random();    
+        let signature = sign(&t, &key);    
+        let key_2 = key_pair::random();    
+        let t_2 = generate_random_transaction();    
+        assert!(!verify(&t_2, &(key.public_key()), &signature));    
+        assert!(!verify(&t, &(key_2.public_key()), &signature));    
+    } 
 }
