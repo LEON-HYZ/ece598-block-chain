@@ -11,6 +11,8 @@ use crate::block::{Block,Header,Content};
 use crate::crypto::merkle::{MerkleTree};
 
 use std::collections::HashMap;
+use std::time::{SystemTime, UNIX_EPOCH};
+
 
 
 use std::thread;
@@ -20,6 +22,8 @@ pub struct OrphanBuffer {
     //Using HashMap for orphan_buffer
     pub HashMap: HashMap<H256,Vec<Block>>,
 }
+
+
 
 impl OrphanBuffer {
     pub fn new() -> Self{
@@ -58,6 +62,8 @@ impl OrphanBuffer {
 pub struct Context {
     blockchain: Arc<Mutex<Blockchain>>,
     orphanbuffer: Arc<Mutex<OrphanBuffer>>,
+    // sum_delay: &Arc<Mutex<f32>>,
+    // num_delay: &Arc<Mutex<u8>>,
     msg_chan: channel::Receiver<(Vec<u8>, peer::Handle)>,
     num_worker: usize,
     server: ServerHandle,
@@ -66,6 +72,8 @@ pub struct Context {
 pub fn new(
     blockchain: &Arc<Mutex<Blockchain>>,
     orphanbuffer: &Arc<Mutex<OrphanBuffer>>,
+    // sum_delay: &Arc<Mutex<f32>>,
+    // num_delay: &Arc<Mutex<u8>>,
     num_worker: usize,
     msg_src: channel::Receiver<(Vec<u8>, peer::Handle)>,
     server: &ServerHandle,
@@ -73,6 +81,8 @@ pub fn new(
     Context {
         blockchain: Arc::clone(blockchain),
         orphanbuffer: Arc::clone(orphanbuffer),
+        // sum_delay: Arc::clone(sum_delay),
+        // num_delay: Arc::clone(num_delay),
         msg_chan: msg_src,
         num_worker,
         server: server.clone(),
@@ -90,6 +100,8 @@ impl Context {
             });
         }
     }
+
+
 
     fn worker_loop(&self) {
         loop {
@@ -121,7 +133,7 @@ impl Context {
                         peer.write(Message::GetBlocks(notContainedHashes));
                     }
 
-                    
+
                 }
 
                 Message::GetBlocks(hashes) => {
@@ -140,7 +152,7 @@ impl Context {
                     if notContainedBlocks.len() != 0 {
                         peer.write(Message::Blocks(notContainedBlocks));
                     }
-                    
+
                 }
 
                 Message::Blocks(blocks) => {
@@ -148,20 +160,28 @@ impl Context {
                     let mut blocks = blocks.clone();
                     let mut blockchain = self.blockchain.lock().unwrap();
                     let mut orphanbuffer = self.orphanbuffer.lock().unwrap();
-                    
+
                     let mut newlyOrphanParent = Vec::<H256>::new();
                     let mut newlyProcessedBlockHashes = Vec::<H256>::new();
 
                     for block in blocks.iter() {
-                        
+
                         //PoW check
                         let difficulty = blockchain.Blocks.get(&blockchain.tip.0).unwrap().0.getdifficulty();
-                        if block.hash() <=  difficulty{ 
+                        if block.hash() <=  difficulty{
                             if block.Header.difficulty == difficulty{
                                 if !blockchain.Blocks.get(&block.getparent()).is_none(){
                                     //println!("block parent: {:?}", block.getparent());
                                     //println!("tip H256: {:?}", blockchain.tip.0);
                                     blockchain.insert(&block);
+                                    let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
+                                    let mut delay_u128 = now - block.gettimestamp();
+                                    let delay = delay_u128 as f32;
+                                    // sum_delay += delay;
+                                    // num_delay += 1;
+                                    println!("delay: {:?}", delay);
+                                    // println!("sum_delay: {:?}", sum_delay);
+                                    // println!("num_delay: {:?}", num_delay);
                                     newlyProcessedBlockHashes.push(block.hash());
                                 }
                                 else{// orphan blocks created only when blocks were not inserted.
@@ -179,7 +199,7 @@ impl Context {
                         }
                     }
                     peer.write(Message::GetBlocks(newlyOrphanParent)); //Send GetBlocks messages for getting parent blocks of orphans
-                    println!("orphan buffer length: {:?}", orphanbuffer.HashMap.len());
+                    // println!("orphan buffer length: {:?}", orphanbuffer.HashMap.len());
                     // Orphan Handler
                     for idx in 0..newlyProcessedBlockHashes.len(){
                         if orphanbuffer.isParentIn(&newlyProcessedBlockHashes[idx]){
@@ -193,7 +213,7 @@ impl Context {
                     }
 
 
-                    println!("Current height of blockchain: {:?}", blockchain.tip.1);
+                    // println!("Current height of blockchain: {:?}", blockchain.tip.1);
                     self.server.broadcast(Message::NewBlockHashes(newlyProcessedBlockHashes));
                 }
 

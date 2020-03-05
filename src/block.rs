@@ -55,6 +55,10 @@ impl Block{
     pub fn getdifficulty(&self) -> H256 {
         self.Header.difficulty
     }
+
+    pub fn gettimestamp(&self) -> u128 {
+        self.Header.timestamp
+    }
 }
 
 
@@ -100,12 +104,12 @@ pub mod test {
     pub fn generate_random_block(parent: &H256) -> Block {
     	let mut nonce:u32 = thread_rng().gen();
     	let mut timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
-    	
+
         let mut bytes32 = [255u8;32];
         bytes32[0]=0;
         bytes32[1]=5;
         let difficulty : H256 = bytes32.into();
-        
+
     	let mut transaction = Vec::<Transaction>::new();
     	transaction.push(generate_random_transaction());
     	let mut MerkleTree = MerkleTree::new(&transaction);

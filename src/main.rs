@@ -82,18 +82,24 @@ fn main() {
     let blockchain = Arc::new(Mutex::new(new_blockchain));
     let mut new_orphanbuffer = worker::OrphanBuffer::new();
     let orphanbuffer = Arc::new(Mutex::new(new_orphanbuffer));
+    // let mut new_sum_delay:f32 = 0.0;
+    // let sum_delay = Arc::new(Mutex::new(new_sum_delay));
+    // let mut new_num_delay:u8 = 0.0;
+    // let num_delay = Arc::new(Mutex::new(new_num_delay));
 
 
     let worker_ctx = worker::new(
         &blockchain,
         &orphanbuffer,
+        // &sum_delay,
+        // &num_delay,
         p2p_workers,
         msg_rx,
         &server,
     );
     worker_ctx.start();
 
-    
+
 
     // start the miner
     let (miner_ctx, miner) = miner::new(
