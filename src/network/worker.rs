@@ -206,6 +206,10 @@ impl Context {
                             let orphans = orphanbuffer.getOrphanBlocks(&newlyProcessedBlockHashes[idx]);
                             for orphan in orphans{
                                 blockchain.insert(&orphan);
+                                let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
+                                let mut delay_u128 = now - orphan.gettimestamp();
+                                let delay = delay_u128 as f32;
+                                println!("delay: {:?}", delay);
                                 newlyProcessedBlockHashes.push(orphan.hash());
                             }
                             orphanbuffer.remove(&newlyProcessedBlockHashes[idx]);
