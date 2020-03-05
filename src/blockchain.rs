@@ -18,10 +18,10 @@ impl Blockchain {
     pub fn new() -> Self {
         let mut Blocks:HashMap<H256,(Block, u32)> = HashMap::new();
         let genesis_hash = <H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8]));
-        let block = generate_random_block_(&genesis_hash);
+        let mut block = generate_random_block_(&genesis_hash);
         Blocks.insert(genesis_hash,(block, 0));
         let tip = (genesis_hash, 0);
-        return Blockchain {Blocks: Blocks,genesis_hash:genesis_hash, tip: tip};
+        return Blockchain {Blocks: Blocks,genesis_hash:genesis_hash, tip: tip,};
     }
 
     /// Insert a block into blockchain

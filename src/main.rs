@@ -80,9 +80,13 @@ fn main() {
         //create new blockchain
     let mut new_blockchain = blockchain::Blockchain::new();
     let blockchain = Arc::new(Mutex::new(new_blockchain));
-    
+    let mut new_orphanbuffer = worker::OrphanBuffer::new();
+    let orphanbuffer = Arc::new(Mutex::new(new_orphanbuffer));
+
+
     let worker_ctx = worker::new(
         &blockchain,
+        &orphanbuffer,
         p2p_workers,
         msg_rx,
         &server,

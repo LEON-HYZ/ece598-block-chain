@@ -34,7 +34,7 @@ impl MerkleTree {
         //insert leaf nodes fisrt
         for elem in data{
             leafNodes.push(TreeNode{val:elem.hash(),left:None,right:None});
-            println!("children: {:?}", elem.hash());
+            //println!("children: {:?}", elem.hash());
         }
         if length % 2 == 1 {
             leafNodes.push(TreeNode{val:leafNodes[length-1].val,left:None,right:None});
@@ -58,7 +58,7 @@ impl MerkleTree {
                 let rightNodeVal = (rightNode.val).as_ref();
 
                 let parentNodeVal = <H256>::from(digest::digest(&digest::SHA256, &([&leftNodeVal[..], &rightNodeVal[..]].concat())));
-                println!("parent: {:?}, left: {:?}, right:{:?}", parentNodeVal,leftNode.val,rightNode.val);
+                //println!("parent: {:?}, left: {:?}, right:{:?}", parentNodeVal,leftNode.val,rightNode.val);
                 let parentNode = TreeNode{val: parentNodeVal ,left:Some(Box::new(leftNode)),right:Some(Box::new(rightNode))};
             
                 TreeNodes.push(parentNode);
@@ -87,7 +87,7 @@ impl MerkleTree {
         let mut proofVec:Vec<H256> = Vec::new();
         let realIndex = (index + 1) as i32;
         let realHeight = self.height;
-        println!("height: {:?}", realHeight);
+        //println!("height: {:?}", realHeight);
         let mut center = (2_i32.pow(realHeight as u32))/2;
         let mut oriCenter = center;
         for i in 0..realHeight {
@@ -108,7 +108,7 @@ impl MerkleTree {
             }
             oriCenter = oriCenter/2;
         }
-        println!("{:?}", proofVec);
+        //println!("{:?}", proofVec);
         return proofVec;
 
     }
@@ -141,7 +141,7 @@ pub fn verify(root: &H256, datum: &H256, proof: &[H256], index: usize, leaf_size
             let right = mydatum.as_ref();
             let left = left_temp.as_ref();
             let parentVal = <H256>::from(digest::digest(&digest::SHA256, &([&left[..], &right[..]].concat())));
-            println!("verified parent: {:?}", parentVal);
+            //println!("verified parent: {:?}", parentVal);
             realIndex = realIndex/2;
             mydatum = parentVal;
         }
@@ -150,7 +150,7 @@ pub fn verify(root: &H256, datum: &H256, proof: &[H256], index: usize, leaf_size
             let right_temp = proofVec.remove(proofVec.len()-1);
             let right = right_temp.as_ref();
             let parentVal = <H256>::from(digest::digest(&digest::SHA256, &([&left[..], &right[..]].concat())));
-            println!("verified parent: {:?}", parentVal);
+            //println!("verified parent: {:?}", parentVal);
             realIndex = (realIndex+1)/2;
             mydatum = parentVal;
         }
@@ -260,7 +260,7 @@ mod tests {
         let merkle_tree = MerkleTree::new(&input_data);
         for i in 0.. input_data.len() {
             let proof = merkle_tree.proof(i);
-            println!("test index: {:?}", i);
+            //println!("test index: {:?}", i);
             assert!(verify(&merkle_tree.root(), &input_data[i].hash(), &proof, i, input_data.len()));
         }
         let input_data_2: Vec<H256> = gen_merkle_tree_assignment2_another!();
