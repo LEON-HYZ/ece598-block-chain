@@ -159,6 +159,8 @@ impl Context {
                         if block.hash() <=  difficulty{ 
                             if block.Header.difficulty == difficulty{
                                 if !blockchain.Blocks.get(&block.getparent()).is_none(){
+                                    //println!("block parent: {:?}", block.getparent());
+                                    println!("tip H256: {:?}", blockchain.tip.0);
                                     blockchain.insert(&block);
                                     newlyProcessedBlockHashes.push(block.hash());
                                 }
@@ -170,7 +172,7 @@ impl Context {
                                     }
                                     newlyOrphans.push(block.clone());
                                     orphanbuffer.insert(block.getparent(),newlyOrphans);
-                                    println!("orphan inserted: {:?}", block.getparent());
+                                    //println!("orphan inserted: {:?}", block.getparent());
                                     newlyOrphanParent.push(block.getparent());
                                 }
                             }
@@ -182,12 +184,10 @@ impl Context {
                     for idx in 0..newlyProcessedBlockHashes.len(){
                         if orphanbuffer.isParentIn(&newlyProcessedBlockHashes[idx]){
                             let orphans = orphanbuffer.getOrphanBlocks(&newlyProcessedBlockHashes[idx]);
-                            let mut hash:H256 = (hex!("1000000000000000000000000000000000000000000000000000000000000000")).into();
                             for orphan in orphans{
                                 blockchain.insert(&orphan);
-                                hash = orphan.hash();
+                                newlyProcessedBlockHashes.push(orphan.hash());
                             }
-                            newlyProcessedBlockHashes.push(hash);
                             orphanbuffer.remove(&newlyProcessedBlockHashes[idx]);
                         }
                     }

@@ -2,6 +2,7 @@ use crate::block::Block;
 use crate::crypto::hash::{H256,Hashable};
 use crate::block::generate_random_block_;
 use ring::{digest};
+extern crate rand;
 
 use std::collections::HashMap;
 
@@ -47,12 +48,12 @@ impl Blockchain {
         let mut hash = self.tip.0;
         let mut height = self.tip.1;
         while height != 0 {
-            blockLists.insert(0,hash);
+            blockLists.push(hash);
             let parentHash = self.Blocks.get(&hash).as_ref().unwrap().0.getparent();
             hash = parentHash;
             height = self.Blocks.get(&hash).as_ref().unwrap().1;
         }
-        blockLists.insert(0,self.genesis_hash);
+        blockLists.push(self.genesis_hash);
         return blockLists;
     }
 }
