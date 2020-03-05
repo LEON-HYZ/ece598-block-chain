@@ -160,7 +160,7 @@ impl Context {
                             if block.Header.difficulty == difficulty{
                                 if !blockchain.Blocks.get(&block.getparent()).is_none(){
                                     //println!("block parent: {:?}", block.getparent());
-                                    println!("tip H256: {:?}", blockchain.tip.0);
+                                    //println!("tip H256: {:?}", blockchain.tip.0);
                                     blockchain.insert(&block);
                                     newlyProcessedBlockHashes.push(block.hash());
                                 }
@@ -194,7 +194,7 @@ impl Context {
 
 
                     println!("Current height of blockchain: {:?}", blockchain.tip.1);
-                    self.server.broadcast(Message::NewBlockHashes(blockchain.all_blocks_in_longest_chain()));
+                    self.server.broadcast(Message::NewBlockHashes(newlyProcessedBlockHashes));
                 }
 
             }

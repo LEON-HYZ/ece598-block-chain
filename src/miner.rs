@@ -165,16 +165,16 @@ impl Context {
 
 
             if newBlock.hash() <= difficulty {
-                println!("miner tip: {:?}", self.blockchain.lock().unwrap().tip.0);
+                //println!("miner tip: {:?}", self.blockchain.lock().unwrap().tip.0);
                 self.blockchain.lock().unwrap().insert(&newBlock);
                 miner_counter += 1;
                 println!("Current miner counter: {:?}", miner_counter);
                 println!("Current height of blockchain: {:?}", self.blockchain.lock().unwrap().tip.1);
 
                 //println!("Current tip: {:?}", blockchain.tip() );
-                if miner_counter % 2 == 1{
-                    self.server.broadcast(Message::NewBlockHashes(self.blockchain.lock().unwrap().all_blocks_in_longest_chain()));
-                }
+                
+                self.server.broadcast(Message::NewBlockHashes(self.blockchain.lock().unwrap().all_blocks_in_longest_chain()));
+                
             }
 
             if let OperatingState::Run(i) = self.operating_state {

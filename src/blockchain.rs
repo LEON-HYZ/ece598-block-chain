@@ -48,12 +48,12 @@ impl Blockchain {
         let mut hash = self.tip.0;
         let mut height = self.tip.1;
         while height != 0 {
-            blockLists.push(hash);
+            blockLists.insert(0,hash);
             let parentHash = self.Blocks.get(&hash).as_ref().unwrap().0.getparent();
             hash = parentHash;
             height = self.Blocks.get(&hash).as_ref().unwrap().1;
         }
-        blockLists.push(self.genesis_hash);
+        blockLists.insert(0,self.genesis_hash);
         return blockLists;
     }
 }
