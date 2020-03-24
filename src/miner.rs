@@ -6,7 +6,7 @@ use crate::crypto::hash::{H256, Hashable};
 use crate::blockchain::Blockchain;
 use crate::block::{Block,Header,Content};
 use crate::crypto::merkle::{MerkleTree};
-use crate::transaction::{Transaction,generate_random_transaction_};
+use crate::transaction::{Transaction, generate_random_transaction_, Mempool, SignedTransaction};
 use rand::{thread_rng, Rng};
 use ring::{digest};
 
@@ -31,6 +31,7 @@ enum OperatingState {
 
 pub struct Context {
     /// Channel for receiving control signal
+    mempool: Arc<Mutex<Mempool>>,
     blockchain: Arc<Mutex<Blockchain>>,
     control_chan: Receiver<ControlSignal>,
     operating_state: OperatingState,
@@ -45,11 +46,13 @@ pub struct Handle {
 
 pub fn new(
     server: &ServerHandle,
+    mempool: &Arc<Mutex<Mempool>>,
     blockchain: &Arc<Mutex<Blockchain>>,
 ) -> (Context, Handle) {
     let (signal_chan_sender, signal_chan_receiver) = unbounded();
 
     let ctx = Context {
+        mempool: Arc::clone(mempool),
         blockchain: Arc::clone(blockchain),
         control_chan: signal_chan_receiver,
         operating_state: OperatingState::Paused,
@@ -132,15 +135,26 @@ impl Context {
             let nonce:u32 = thread_rng().gen();
             let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
 
-            //let difficulty : H256 = (hex!("1100000A00000000000000000000000000000000000000000000000000000000")).into();
-            //let rand_u8 = digest::digest(&digest::SHA256,"442cabd17e40d95ac0932d977c0759397b9db4d93c4d62c368b95419db574db0".as_bytes());
-            //let difficulty = <H256>::from(rand_u8);
             let mut bytes32 = [255u8;32];
             bytes32[0]=0;
             bytes32[1]=5;
             let difficulty : H256 = bytes32.into();
-            let mut transaction = Vec::<Transaction>::new();
-            transaction.push(generate_random_transaction_());
+            let mut transaction = Vec::<SignedTransaction>::new();
+            let mut mempool = self.mempool.lock().unwrap();
+            let block_size_limit = 8;
+            let mut trans_count = 0;
+            //transaction.push(generate_random_transaction_());
+
+            for hash in mempool.Transactions.keys(){
+                if trans_count < block_size_limit{
+                    transaction.push(mempool.Transactions.get(hash).unwrap().clone());
+                    trans_count = trans_count + 1;
+                }
+            }
+
+
+
+
             let mut MerkleTree = MerkleTree::new(&transaction);
 
             let newContent = Content{

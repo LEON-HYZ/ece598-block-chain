@@ -28,6 +28,7 @@ pub struct input {
 pub struct output {
     pub recpAddress: H160,
     pub value: u32,
+    pub index:u32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -251,6 +252,7 @@ pub fn generate_random_signed_transaction_() -> SignedTransaction {
         let output = output{
             recpAddress : rand_addr,
             value : rand_u32,
+            index: rand_u32,
         };
 
         let mut inputVec = Vec::<input>::new();
@@ -285,6 +287,7 @@ pub fn generate_random_signed_transaction_() -> SignedTransaction {
         let output = output{
             recpAddress : rand_addr,
             value : rand_u32,
+            index: rand_u32,
         };
 
         let mut inputVec = Vec::<input>::new();
@@ -319,6 +322,7 @@ pub mod tests {
         let output = output{
             recpAddress : rand_addr,
             value : rand_u32,
+            index: rand_u32,
         };
 
         let mut inputVec = Vec::<input>::new();

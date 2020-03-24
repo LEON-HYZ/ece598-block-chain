@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
 use crate::crypto::hash::{H256, Hashable};
 use crate::crypto::merkle::{MerkleTree};
-use crate::transaction::{Transaction};
+use crate::transaction::{Transaction, SignedTransaction, generate_random_signed_transaction_};
 use crate::transaction::generate_random_transaction_;
 
 
@@ -24,7 +24,7 @@ pub struct Header {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Content {
-    pub content: Vec<Transaction>,
+    pub content: Vec<SignedTransaction>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -63,8 +63,8 @@ pub fn generate_random_block_(parent: &H256) -> Block {
         bytes32[0]=0;
         bytes32[1]=5;
         let difficulty : H256 = bytes32.into();
-        let mut transaction = Vec::<Transaction>::new();
-        transaction.push(generate_random_transaction_());
+        let mut transaction = Vec::<SignedTransaction>::new();
+        transaction.push(generate_random_signed_transaction_());
         let mut MerkleTree = MerkleTree::new(&transaction);
 
 
@@ -104,9 +104,9 @@ pub mod test {
         bytes32[1]=5;
         let difficulty : H256 = bytes32.into();
 
-    	let mut transaction = Vec::<Transaction>::new();
-    	transaction.push(generate_random_transaction());
-    	let mut MerkleTree = MerkleTree::new(&transaction);
+        let mut transaction = Vec::<SignedTransaction>::new();
+        transaction.push(generate_random_signed_transaction_());
+        let mut MerkleTree = MerkleTree::new(&transaction);
 
 
 
