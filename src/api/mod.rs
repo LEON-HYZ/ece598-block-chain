@@ -2,6 +2,7 @@ use serde::Serialize;
 use crate::miner::Handle as MinerHandle;
 use crate::network::server::Handle as NetworkServerHandle;
 use crate::network::message::Message;
+use crate::transaction::Handle as TransactionHandle;
 
 use log::info;
 use std::collections::HashMap;
@@ -15,6 +16,7 @@ pub struct Server {
     handle: HTTPServer,
     miner: MinerHandle,
     network: NetworkServerHandle,
+    transaction:TransactionHandle
 }
 
 #[derive(Serialize)]
@@ -41,17 +43,20 @@ impl Server {
         addr: std::net::SocketAddr,
         miner: &MinerHandle,
         network: &NetworkServerHandle,
+        transaction: &TransactionHandle,
     ) {
         let handle = HTTPServer::http(&addr).unwrap();
         let server = Self {
             handle,
             miner: miner.clone(),
             network: network.clone(),
+            transaction: transaction.clone(),
         };
         thread::spawn(move || {
             for req in server.handle.incoming_requests() {
                 let miner = server.miner.clone();
                 let network = server.network.clone();
+                let transaction = server.transaction.clone();
                 thread::spawn(move || {
                     // a valid url requires a base
                     let base_url = Url::parse(&format!("http://{}/", &addr)).unwrap();

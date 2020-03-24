@@ -82,6 +82,8 @@ fn main() {
     let blockchain = Arc::new(Mutex::new(new_blockchain));
     let mut new_orphanbuffer = worker::OrphanBuffer::new();
     let orphanbuffer = Arc::new(Mutex::new(new_orphanbuffer));
+    let mut new_Mempool = transaction::Mempool::new();
+    let mempool = Arc::new(Mutex::new(new_Mempool));
     // let mut new_sum_delay:f32 = 0.0;
     // let sum_delay = Arc::new(Mutex::new(new_sum_delay));
     // let mut new_num_delay:u8 = 0.0;
@@ -91,6 +93,7 @@ fn main() {
     let worker_ctx = worker::new(
         &blockchain,
         &orphanbuffer,
+        &mempool,
         // &sum_delay,
         // &num_delay,
         p2p_workers,
@@ -99,6 +102,12 @@ fn main() {
     );
     worker_ctx.start();
 
+    //start the transaction
+    let (transaction_ctx, transaction) = transaction::new(
+        &server,
+        &mempool,
+    );
+    transaction_ctx.start();
 
 
     // start the miner
@@ -147,6 +156,7 @@ fn main() {
         api_addr,
         &miner,
         &server,
+        &transaction,
     );
 
     loop {

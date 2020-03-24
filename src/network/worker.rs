@@ -9,6 +9,7 @@ use crate::crypto::hash::{H256, Hashable};
 use crate::blockchain::Blockchain;
 use crate::block::{Block,Header,Content};
 use crate::crypto::merkle::{MerkleTree};
+use crate::transaction::Mempool;
 
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -62,6 +63,7 @@ impl OrphanBuffer {
 pub struct Context {
     blockchain: Arc<Mutex<Blockchain>>,
     orphanbuffer: Arc<Mutex<OrphanBuffer>>,
+    mempool: Arc<Mutex<Mempool>>,
     // sum_delay: &Arc<Mutex<f32>>,
     // num_delay: &Arc<Mutex<u8>>,
     msg_chan: channel::Receiver<(Vec<u8>, peer::Handle)>,
@@ -72,6 +74,7 @@ pub struct Context {
 pub fn new(
     blockchain: &Arc<Mutex<Blockchain>>,
     orphanbuffer: &Arc<Mutex<OrphanBuffer>>,
+    mempool: &Arc<Mutex<Mempool>>,
     // sum_delay: &Arc<Mutex<f32>>,
     // num_delay: &Arc<Mutex<u8>>,
     num_worker: usize,
@@ -81,6 +84,7 @@ pub fn new(
     Context {
         blockchain: Arc::clone(blockchain),
         orphanbuffer: Arc::clone(orphanbuffer),
+        mempool: Arc::clone(mempool),
         // sum_delay: Arc::clone(sum_delay),
         // num_delay: Arc::clone(num_delay),
         msg_chan: msg_src,
@@ -219,6 +223,19 @@ impl Context {
 
                     // println!("Current height of blockchain: {:?}", blockchain.tip.1);
                     self.server.broadcast(Message::NewBlockHashes(newlyProcessedBlockHashes));
+                }
+
+
+                Message::NewTransactionHashes(hashes) => {
+
+                }
+
+                Message::GetTransactions(hashes) => {
+
+                }
+
+                Message::Transactions(Transactions) => {
+
                 }
 
             }

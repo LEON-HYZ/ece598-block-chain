@@ -40,12 +40,6 @@ impl Hashable for Block {
     }
 }
 
-impl Hashable for Transaction {
-    fn hash(&self) -> H256 {
-        let t_serialized = bincode::serialize(&self).unwrap();
-        return ring::digest::digest(&ring::digest::SHA256, &t_serialized).into();
-    }
-}
 
 impl Block{
     pub fn getparent(&self) -> H256 {
