@@ -87,7 +87,7 @@ pub fn verify(t: &Transaction, public_key: &<Ed25519KeyPair as KeyPair>::PublicK
 //transaction Handle Begins
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Mempool {
-    Transactions: HashMap<H256,SignedTransaction>, // hash <-> transaction(signed)
+    pub Transactions: HashMap<H256,SignedTransaction>, // hash <-> transaction(signed)
 }
 
 impl Mempool {
@@ -178,11 +178,9 @@ impl Context {
             }
         }
     }
-
+    //transaction generator
     fn transaction_loop(&mut self) {
         let mut transaction_counter:i32 = 0;
-        //let rand_u8 = digest::digest(&digest::SHA256,"442cabd17e40d95ac0932d977c0759397b9db4d93c4d62c368b95419db574db0".as_bytes());
-        //let diff_rand = <H256>::from(rand_u8);
         // main mining loop
         loop {
             // check and react to control signals

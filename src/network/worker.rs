@@ -9,7 +9,7 @@ use crate::crypto::hash::{H256, Hashable};
 use crate::blockchain::Blockchain;
 use crate::block::{Block,Header,Content};
 use crate::crypto::merkle::{MerkleTree};
-use crate::transaction::Mempool;
+use crate::transaction::{Mempool, SignedTransaction};
 
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -227,14 +227,46 @@ impl Context {
 
 
                 Message::NewTransactionHashes(hashes) => {
-
+                    let mut mempool = self.mempool.lock().unwrap();
+                    let mut notContainedHashes = Vec::<H256>::new();
+                    if hashes.len() != 0 {
+                        for hash in hashes.iter() {
+                            if !mempool.Transactions.get(&hash).is_none() {
+                                notContainedHashes.push(*hash);
+                            }
+                        }
+                    }
+                    if notContainedHashes.len() != 0{
+                        peer.write(Message::GetTransactions(notContainedHashes));
+                    }
                 }
 
                 Message::GetTransactions(hashes) => {
+                    let mut mempool = self.mempool.lock().unwrap();
+                    let mut notContainedTransactions = Vec::<SignedTransaction>::new();
+                    let mut hashes = hashes.clone();
+                    if hashes.len() != 0 {
+                        for hash in hashes.iter() {
+                            if !mempool.Transactions.get(&hash).is_none() {
+                                notContainedTransactions.push(mempool.Transactions.get(&hash).unwrap().clone());
+                            }
+                        }
+                    }
+                    if notContainedTransactions.len() != 0{
+                        peer.write(Message::Transactions(notContainedTransactions));
+                    }
 
                 }
 
                 Message::Transactions(Transactions) => {
+                    let mut mempool = self.mempool.lock().unwrap();
+                    let mut Transactions = Transactions.clone();
+
+                    for Transaction in Transactions.iter(){
+                        if !mempool.Transactions.contains_key(&Transaction.hash()) {
+                            //Transaction signature check
+                        }
+                    }
 
                 }
 
