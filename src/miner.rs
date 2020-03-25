@@ -151,16 +151,17 @@ impl Context {
             // read transactions from mempool
             let mut add_transaction = Vec::<SignedTransaction>::new();
             let mut mempool = self.mempool.lock().unwrap();
-            let block_size_limit = 6;
+            let block_size_limit = 5;
             let mut trans_count = 0;
             let mut key_iter = mempool.Transactions.keys();
-            //let mut key_need_remove:H256;
+            let mut key_need_remove = Vec::<H256>::new();
 
             while trans_count < block_size_limit {
                 match key_iter.next() {
                     Some(hash) => {
                         //println!("{:?}",hash);
                         add_transaction.push(mempool.Transactions.get(hash).unwrap().clone());
+                        key_need_remove.push(*hash);
                         trans_count = trans_count + 1;
                     }
                     None => {
@@ -189,8 +190,8 @@ impl Context {
                 Header: newHeader,
                 Content: newContent,
             };
-
-
+            //println!("{:?}", MerkleTree.root() );
+            //println!("{:?}",newBlock.hash() );
 
 
 
@@ -200,6 +201,11 @@ impl Context {
                 miner_counter += 1;
                 println!("Current miner counter: {:?}", miner_counter);
                 println!("Current height of blockchain: {:?}", self.blockchain.lock().unwrap().tip.1);
+
+                //Mempool Update
+                for hash in key_need_remove.iter() {
+                    mempool.Transactions.remove(hash);
+                }
 
                 //println!("Current tip: {:?}", blockchain.tip() );
 
