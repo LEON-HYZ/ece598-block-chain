@@ -48,8 +48,8 @@ impl Hashable for Transaction {
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct SignedTransaction {
     pub transaction: Transaction,
-    pub signature: Signature,
-    pub publicKey: PublicKey,
+    pub signature: Vec<u8>,
+    pub publicKey: Vec<u8>,
 }
 
 impl Hashable for SignedTransaction {
@@ -61,8 +61,8 @@ impl Hashable for SignedTransaction {
 impl SignedTransaction {
     pub fn new(t: &Transaction, signature: &Signature, public_key: &<Ed25519KeyPair as KeyPair>::PublicKey) -> Self{
         let mut transaction = t.clone();
-        let mut signature = signature.clone();
-        let mut publicKey = public_key.clone();
+        let mut signature = signature.as_ref().to_vec();
+        let mut publicKey = public_key.as_ref().to_vec();
         return SignedTransaction{transaction: transaction, signature:signature, publicKey:publicKey}
     }
 
@@ -91,6 +91,7 @@ pub fn verify(t: &Transaction, public_key: &<Ed25519KeyPair as KeyPair>::PublicK
     else {   return false;   }
 
 }
+
 
 //transaction Handle Begins
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]

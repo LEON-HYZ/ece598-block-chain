@@ -10,6 +10,7 @@ use crate::blockchain::Blockchain;
 use crate::block::{Block,Header,Content};
 use crate::crypto::merkle::{MerkleTree};
 use crate::transaction::{Mempool, SignedTransaction};
+use ring::signature::{Ed25519KeyPair, Signature, KeyPair, VerificationAlgorithm, EdDSAParameters};
 
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -17,6 +18,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 
 use std::thread;
+use crate::transaction;
 
 #[derive(Debug, Clone)]
 pub struct OrphanBuffer {
@@ -265,8 +267,12 @@ impl Context {
                     for Transaction in Transactions.iter(){
                         if !mempool.Transactions.contains_key(&Transaction.hash()) {
                             //Transaction signature check
-                            if crate::transaction::verify(&Transaction.transaction, &Transaction.publicKey, &Transaction.signature) {
-                                mempool.insert(&Transaction);
+                            let public_key = &Transaction.publicKey[..];
+                            let signature = &Transaction.signature[..];
+
+                            let public_key_ = ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public_key.as_ref());
+                            if public_key_.verify(&bincode::serialize(&Transaction).unwrap()[..],signature.as_ref()) == Ok(()){
+                                mempool.insert(Transaction);
                             }
                         }
                     }
