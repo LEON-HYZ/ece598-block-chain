@@ -6,7 +6,7 @@ use crate::crypto::hash::{H256, Hashable};
 use crate::blockchain::Blockchain;
 use crate::block::{Block,Header,Content};
 use crate::crypto::merkle::{MerkleTree};
-use crate::transaction::{Transaction, generate_random_transaction_, Mempool, SignedTransaction};
+use crate::transaction::{Transaction, generate_random_transaction_, Mempool, State, SignedTransaction};
 use rand::{thread_rng, Rng};
 use ring::{digest};
 
@@ -32,6 +32,7 @@ enum OperatingState {
 pub struct Context {
     /// Channel for receiving control signal
     mempool: Arc<Mutex<Mempool>>,
+    state: Arc<Mutex<State>>,
     blockchain: Arc<Mutex<Blockchain>>,
     control_chan: Receiver<ControlSignal>,
     operating_state: OperatingState,
@@ -47,12 +48,14 @@ pub struct Handle {
 pub fn new(
     server: &ServerHandle,
     mempool: &Arc<Mutex<Mempool>>,
+    state: &Arc<Mutex<State>>,
     blockchain: &Arc<Mutex<Blockchain>>,
 ) -> (Context, Handle) {
     let (signal_chan_sender, signal_chan_receiver) = unbounded();
 
     let ctx = Context {
         mempool: Arc::clone(mempool),
+        state: Arc::clone(state),
         blockchain: Arc::clone(blockchain),
         control_chan: signal_chan_receiver,
         operating_state: OperatingState::Paused,
@@ -173,9 +176,9 @@ impl Context {
                 Header: newHeader,
                 Content: newContent,
             };
-            
 
-            
+
+
 
 
             if newBlock.hash() <= difficulty {
@@ -186,9 +189,9 @@ impl Context {
                 println!("Current height of blockchain: {:?}", self.blockchain.lock().unwrap().tip.1);
 
                 //println!("Current tip: {:?}", blockchain.tip() );
-                
+
                 self.server.broadcast(Message::NewBlockHashes(self.blockchain.lock().unwrap().all_blocks_in_longest_chain()));
-                
+
             }
 
             if let OperatingState::Run(i) = self.operating_state {

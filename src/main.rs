@@ -86,6 +86,8 @@ fn main() {
     let orphanbuffer = Arc::new(Mutex::new(new_orphanbuffer));
     let mut new_Mempool = transaction::Mempool::new();
     let mempool = Arc::new(Mutex::new(new_Mempool));
+    let mut new_State = transaction::State::new();
+    let state = Arc::new(Mutex::new(new_State));
     // let mut new_sum_delay:f32 = 0.0;
     // let sum_delay = Arc::new(Mutex::new(new_sum_delay));
     // let mut new_num_delay:u8 = 0.0;
@@ -96,6 +98,7 @@ fn main() {
         &blockchain,
         &orphanbuffer,
         &mempool,
+        &state,
         // &sum_delay,
         // &num_delay,
         p2p_workers,
@@ -108,6 +111,7 @@ fn main() {
     let (transaction_ctx, transaction) = transaction::new(
         &server,
         &mempool,
+        &state,
     );
     transaction_ctx.start();
 
@@ -116,6 +120,7 @@ fn main() {
     let (miner_ctx, miner) = miner::new(
         &server,
         &mempool,
+        &state,
         &blockchain,
     );
     miner_ctx.start();

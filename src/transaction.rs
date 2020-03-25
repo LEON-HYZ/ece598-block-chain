@@ -23,6 +23,7 @@ pub struct input {
     pub prevTransaction: H256,
     pub value: u32,
     pub index: u32,
+    pub preOutputIndex: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -117,7 +118,8 @@ enum OperatingState {
 
 pub struct Context {
     /// Channel for receiving control signal
-    Mempool: Arc<Mutex<Mempool>>,
+    mempool: Arc<Mutex<Mempool>>,
+    state: Arc<Mutex<State>>,
     control_chan: Receiver<ControlSignal>,
     operating_state: OperatingState,
     server: ServerHandle,
@@ -132,12 +134,14 @@ pub struct Handle {
 
 pub fn new(
     server: &ServerHandle,
-    Mempool: &Arc<Mutex<Mempool>>,
+    mempool: &Arc<Mutex<Mempool>>,
+    state: &Arc<Mutex<State>>,
 ) -> (Context, Handle) {
     let (signal_chan_sender, signal_chan_receiver) = unbounded();
 
     let ctx = Context {
-        Mempool: Arc::clone(Mempool),
+        mempool: Arc::clone(mempool),
+        state: Arc::clone(state),
         control_chan: signal_chan_receiver,
         operating_state: OperatingState::Paused,
         server: server.clone(),
@@ -226,10 +230,10 @@ impl Context {
             let signature = sign(&transaction,&keypair);
             let SignedTransaction = SignedTransaction::new(&transaction, &signature,&keypair.public_key());
             //check before inserting to mempool
-            self.Mempool.lock().unwrap().insert(&SignedTransaction);
+            self.mempool.lock().unwrap().insert(&SignedTransaction);
 
             let mut keyhashes = Vec::<H256>::new();
-            for k in self.Mempool.lock().unwrap().Transactions.keys(){
+            for k in self.mempool.lock().unwrap().Transactions.keys(){
                 keyhashes.push(k.clone());
             }
             if keyhashes.capacity() > 0{
@@ -280,7 +284,24 @@ pub fn generate_transaction(preHash:&H256, inValue:&Vec<u32>, outValue:&Vec<u32>
 
 //transaction Handle Ends
 
+//state Begins
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct State {
+    pub Outputs: HashMap<(H256, u32),(u32, H160)>, // hash, output index <-> value, recipient
+}
 
+impl State {
+    pub fn new() -> Self{
+        let hashmap:HashMap<(H256, u32),(u32, H160)> = HashMap::new();
+        return State{Outputs:hashmap,}
+    }
+
+    // pub fn insert(&mut self, tx: &SignedTransaction) {
+    //     let last_tx = tx.clone();
+    //     self.Transactions.insert(tx.hash(), last_tx);
+    // }
+}
+//state Ends
 
 
 

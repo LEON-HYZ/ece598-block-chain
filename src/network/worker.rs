@@ -9,7 +9,7 @@ use crate::crypto::hash::{H256, Hashable};
 use crate::blockchain::Blockchain;
 use crate::block::{Block,Header,Content};
 use crate::crypto::merkle::{MerkleTree};
-use crate::transaction::{Mempool, SignedTransaction};
+use crate::transaction::{Mempool, State, SignedTransaction};
 use ring::signature::{Ed25519KeyPair, Signature, KeyPair, VerificationAlgorithm, EdDSAParameters};
 
 use std::collections::HashMap;
@@ -66,6 +66,7 @@ pub struct Context {
     blockchain: Arc<Mutex<Blockchain>>,
     orphanbuffer: Arc<Mutex<OrphanBuffer>>,
     mempool: Arc<Mutex<Mempool>>,
+    state: Arc<Mutex<State>>,
     // sum_delay: &Arc<Mutex<f32>>,
     // num_delay: &Arc<Mutex<u8>>,
     msg_chan: channel::Receiver<(Vec<u8>, peer::Handle)>,
@@ -77,6 +78,7 @@ pub fn new(
     blockchain: &Arc<Mutex<Blockchain>>,
     orphanbuffer: &Arc<Mutex<OrphanBuffer>>,
     mempool: &Arc<Mutex<Mempool>>,
+    state: &Arc<Mutex<State>>,
     // sum_delay: &Arc<Mutex<f32>>,
     // num_delay: &Arc<Mutex<u8>>,
     num_worker: usize,
@@ -87,6 +89,7 @@ pub fn new(
         blockchain: Arc::clone(blockchain),
         orphanbuffer: Arc::clone(orphanbuffer),
         mempool: Arc::clone(mempool),
+        state: Arc::clone(state),
         // sum_delay: Arc::clone(sum_delay),
         // num_delay: Arc::clone(num_delay),
         msg_chan: msg_src,
@@ -262,6 +265,7 @@ impl Context {
 
                 Message::Transactions(Transactions) => {
                     let mut mempool = self.mempool.lock().unwrap();
+                    let mut state = self.state.lock().unwrap();
                     let mut Transactions = Transactions.clone();
 
                     for Transaction in Transactions.iter(){
@@ -272,7 +276,8 @@ impl Context {
 
                             let public_key_ = ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public_key.as_ref());
                             if public_key_.verify(&bincode::serialize(&Transaction).unwrap()[..],signature.as_ref()) == Ok(()){
-                                mempool.insert(Transaction);
+                                
+
                             }
                         }
                     }
