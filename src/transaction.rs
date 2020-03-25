@@ -21,6 +21,7 @@ use crate::crypto::key_pair;
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct input {
     pub prevTransaction: H256,
+    pub value: u32,
     pub index: u32,
 }
 
@@ -28,7 +29,7 @@ pub struct input {
 pub struct output {
     pub recpAddress: H160,
     pub value: u32,
-    pub index:u32,
+    pub index: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -65,13 +66,6 @@ impl SignedTransaction {
         let mut publicKey = public_key.as_ref().to_vec();
         return SignedTransaction{transaction: transaction, signature:signature, publicKey:publicKey}
     }
-
-    // pub fn verify(&mut self) -> bool{
-    //     let t_serialized = bincode::serialize(&self.transaction).unwrap();
-    //     let public_key_ = ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, self.publicKey.as_ref());
-    //     if public_key_.verify(&t_serialized,self.signature.as_ref()) == Ok(())  {   return true;    }
-    //     else {   return false;   }
-    // }
 }
 
 /// Create digital signature of a transaction
@@ -195,6 +189,8 @@ impl Context {
     //transaction generator
     fn transaction_loop(&mut self) {
         let mut transaction_counter:i32 = 0;
+        //create new keypair for this thread
+        let keypair = key_pair::random();
         // main mining loop
         loop {
             // check and react to control signals
@@ -219,12 +215,20 @@ impl Context {
                 return;
             }
 
-            let test = generate_random_signed_transaction_();
+            //randomly
+            let new_hash = <H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8]));
+            let rand_addr = <H160>::from(digest::digest(&digest::SHA256,"442cabd17e40d95ac0932d977c0759397b9db4d93c4d62c368b95419db574db0".as_bytes()));
+            let mut rand_u32:u32 = rand::thread_rng().gen();
+            let mut rand_u32_vec = [rand_u32].to_vec();
 
-            self.Mempool.lock().unwrap().Transactions.insert(test.hash(), test);
+            let mut transaction = generate_transaction(&new_hash,&rand_u32_vec,&rand_u32_vec,&rand_addr);
+            //let mut test = generate_random_signed_transaction_();
+            let signature = sign(&transaction,&keypair);
+            let SignedTransaction = SignedTransaction::new(&transaction, &signature,&keypair.public_key());
+            //check before inserting to mempool
+            self.Mempool.lock().unwrap().insert(&SignedTransaction);
 
             let mut keyhashes = Vec::<H256>::new();
-
             for k in self.Mempool.lock().unwrap().Transactions.keys(){
                 keyhashes.push(k.clone());
             }
@@ -242,7 +246,35 @@ impl Context {
     }
 }
 
+//check this
+pub fn generate_transaction(preHash:&H256, inValue:&Vec<u32>, outValue:&Vec<u32>, recpAddress:&H160) -> Transaction {
 
+    let mut inputVec = Vec::<input>::new();
+    let mut outputVec = Vec::<output>::new();
+    let mut inV_count = 0;
+    let mut outV_count = 0;
+    for inV in inValue{
+        let input = input{
+            prevTransaction : *preHash,
+            value: *inV,
+            index : inV_count,
+        };
+        inV_count = inV_count + 1;
+        inputVec.push(input);
+    }
+
+    for outV in outValue{
+        let output = output{
+            recpAddress : *recpAddress,
+            value : *outV,
+            index: outV_count,
+        };
+        outV_count = outV_count + 1;
+        outputVec.push(output);
+    }
+
+    return Transaction{Input : inputVec,Output : outputVec,};
+}
 
 
 
@@ -251,71 +283,55 @@ impl Context {
 
 
 
+
+
+
 pub fn generate_random_signed_transaction_() -> SignedTransaction {
 
-        let new_hash = <H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8]));
-        let rand_addr = <H160>::from(digest::digest(&digest::SHA256,"442cabd17e40d95ac0932d977c0759397b9db4d93c4d62c368b95419db574db0".as_bytes()));
-        let rand_u32:u32 = rand::thread_rng().gen();
+    let new_hash = <H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8]));
+    let rand_addr = <H160>::from(digest::digest(&digest::SHA256,"442cabd17e40d95ac0932d977c0759397b9db4d93c4d62c368b95419db574db0".as_bytes()));
+    let mut rand_u32:u32 = rand::thread_rng().gen();
+    let mut rand_u32_vec = [rand_u32].to_vec();
 
-        let input = input{
-            prevTransaction : new_hash,
-            index : rand_u32,
-        };
+    let mut transaction = generate_transaction(&new_hash,&rand_u32_vec,&rand_u32_vec,&rand_addr);
+    let key = key_pair::random();
+    let signature = sign(&transaction,&key);
+    let SignedTransaction = SignedTransaction::new(&transaction,&signature,&key.public_key());
 
-        let output = output{
-            recpAddress : rand_addr,
-            value : rand_u32,
-            index: rand_u32,
-        };
+    return SignedTransaction;
+}
 
-        let mut inputVec = Vec::<input>::new();
-        let mut outputVec = Vec::<output>::new();
+pub fn generate_random_transaction_() -> Transaction {
 
-        inputVec.push(input);
-        outputVec.push(output);
+    let new_hash = <H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8]));
+    let rand_addr = <H160>::from(digest::digest(&digest::SHA256,"442cabd17e40d95ac0932d977c0759397b9db4d93c4d62c368b95419db574db0".as_bytes()));
+    let rand_u32:u32 = rand::thread_rng().gen();
 
-        let mut transaction = Transaction{
-            Input : inputVec,
-            Output : outputVec,
-        };
+    let input = input{
+        prevTransaction : new_hash,
+        value: rand_u32,
+        index : rand_u32,
+    };
 
-        let key = key_pair::random();
-        let signature = sign(&transaction,&key);
-        let SignedTransaction = SignedTransaction::new(&transaction,&signature,&key.public_key());
+    let output = output{
+        recpAddress : rand_addr,
+        value : rand_u32,
+        index: rand_u32,
+    };
 
-        return SignedTransaction;
-    }
+    let mut inputVec = Vec::<input>::new();
+    let mut outputVec = Vec::<output>::new();
 
-    pub fn generate_random_transaction_() -> Transaction {
+    inputVec.push(input);
+    outputVec.push(output);
 
-        let new_hash = <H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8]));
-        let rand_addr = <H160>::from(digest::digest(&digest::SHA256,"442cabd17e40d95ac0932d977c0759397b9db4d93c4d62c368b95419db574db0".as_bytes()));
-        let rand_u32:u32 = rand::thread_rng().gen();
+    let mut Transaction = Transaction{
+        Input : inputVec,
+        Output : outputVec,
+    };
 
-        let input = input{
-            prevTransaction : new_hash,
-            index : rand_u32,
-        };
-
-        let output = output{
-            recpAddress : rand_addr,
-            value : rand_u32,
-            index: rand_u32,
-        };
-
-        let mut inputVec = Vec::<input>::new();
-        let mut outputVec = Vec::<output>::new();
-
-        inputVec.push(input);
-        outputVec.push(output);
-
-        let mut Transaction = Transaction{
-            Input : inputVec,
-            Output : outputVec,
-        };
-
-        return Transaction;
-    }
+    return Transaction;
+}
 
 #[cfg(any(test, test_utilities))]
 pub mod tests {
@@ -323,33 +339,7 @@ pub mod tests {
     use crate::crypto::key_pair;
 
     pub fn generate_random_transaction() -> Transaction {
-        let new_hash = <H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8]));
-        let rand_addr = <H160>::from(digest::digest(&digest::SHA256,"442cabd17e40d95ac0932d977c0759397b9db4d93c4d62c368b95419db574db0".as_bytes()));
-        let rand_u32:u32 = rand::thread_rng().gen();
-
-        let input = input{
-            prevTransaction : new_hash,
-            index : rand_u32,
-        };
-
-        let output = output{
-            recpAddress : rand_addr,
-            value : rand_u32,
-            index: rand_u32,
-        };
-
-        let mut inputVec = Vec::<input>::new();
-        let mut outputVec = Vec::<output>::new();
-
-        inputVec.push(input);
-        outputVec.push(output);
-
-        let mut Transaction = Transaction{
-            Input : inputVec,
-            Output : outputVec,
-        };
-
-        return Transaction;
+        return generate_random_transaction_()
     }
 
     #[test]

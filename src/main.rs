@@ -20,6 +20,7 @@ use std::process;
 use std::thread;
 use std::time;
 use std::sync::{Arc, Mutex};
+use crate::crypto::key_pair;
 
 fn main() {
     // parse command line arguments
@@ -76,6 +77,7 @@ fn main() {
             error!("Error parsing P2P workers: {}", e);
             process::exit(1);
         });
+
 
         //create new blockchain
     let mut new_blockchain = blockchain::Blockchain::new();
