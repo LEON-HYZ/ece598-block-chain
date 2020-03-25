@@ -35,7 +35,7 @@ pub struct output {
 pub struct Transaction {
     pub Input: Vec<input>,
     pub Output: Vec<output>,
-    
+
 }
 
 impl Hashable for Transaction {
@@ -48,8 +48,8 @@ impl Hashable for Transaction {
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct SignedTransaction {
     pub transaction: Transaction,
-    pub signature: Vec<u8>,
-    pub publicKey: Vec<u8>,
+    pub signature: Signature,
+    pub publicKey: PublicKey,
 }
 
 impl Hashable for SignedTransaction {
@@ -61,10 +61,17 @@ impl Hashable for SignedTransaction {
 impl SignedTransaction {
     pub fn new(t: &Transaction, signature: &Signature, public_key: &<Ed25519KeyPair as KeyPair>::PublicKey) -> Self{
         let mut transaction = t.clone();
-        let mut signature = signature.as_ref().iter().cloned().collect();
-        let mut publicKey = public_key.as_ref().iter().cloned().collect();
+        let mut signature = signature.clone();
+        let mut publicKey = public_key.clone();
         return SignedTransaction{transaction: transaction, signature:signature, publicKey:publicKey}
     }
+
+    // pub fn verify(&mut self) -> bool{
+    //     let t_serialized = bincode::serialize(&self.transaction).unwrap();
+    //     let public_key_ = ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, self.publicKey.as_ref());
+    //     if public_key_.verify(&t_serialized,self.signature.as_ref()) == Ok(())  {   return true;    }
+    //     else {   return false;   }
+    // }
 }
 
 /// Create digital signature of a transaction
@@ -96,6 +103,11 @@ impl Mempool {
         let hashmap:HashMap<H256,SignedTransaction> = HashMap::new();
         return Mempool{Transactions:hashmap,}
     }
+
+    pub fn insert(&mut self, tx: &SignedTransaction) {
+        let last_tx = tx.clone();
+        self.Transactions.insert(tx.hash(), last_tx);
+    }
 }
 enum ControlSignal {
     Start(u64), // the number controls the lambda of interval between block generation
@@ -114,7 +126,7 @@ pub struct Context {
     control_chan: Receiver<ControlSignal>,
     operating_state: OperatingState,
     server: ServerHandle,
-    
+
 }
 
 #[derive(Clone)]
@@ -124,7 +136,7 @@ pub struct Handle {
 }
 
 pub fn new(
-    server: &ServerHandle, 
+    server: &ServerHandle,
     Mempool: &Arc<Mutex<Mempool>>,
 ) -> (Context, Handle) {
     let (signal_chan_sender, signal_chan_receiver) = unbounded();
@@ -207,7 +219,7 @@ impl Context {
             }
 
             let test = generate_random_signed_transaction_();
-            
+
             self.Mempool.lock().unwrap().Transactions.insert(test.hash(), test);
 
             let mut keyhashes = Vec::<H256>::new();
@@ -239,7 +251,7 @@ impl Context {
 
 
 pub fn generate_random_signed_transaction_() -> SignedTransaction {
-        
+
         let new_hash = <H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8]));
         let rand_addr = <H160>::from(digest::digest(&digest::SHA256,"442cabd17e40d95ac0932d977c0759397b9db4d93c4d62c368b95419db574db0".as_bytes()));
         let rand_u32:u32 = rand::thread_rng().gen();
@@ -347,21 +359,21 @@ pub mod tests {
         assert!(verify(&t, &(key.public_key()), &signature));
     }
 
-    #[test]    
-    fn assignment2_transaction_1() {    
-        let t = generate_random_transaction();    
-        let key = key_pair::random();    
-        let signature = sign(&t, &key);    
-        assert!(verify(&t, &(key.public_key()), &signature));    
-    }    
-    #[test]    
-    fn assignment2_transaction_2() {    
-        let t = generate_random_transaction();    
-        let key = key_pair::random();    
-        let signature = sign(&t, &key);    
-        let key_2 = key_pair::random();    
-        let t_2 = generate_random_transaction();    
-        assert!(!verify(&t_2, &(key.public_key()), &signature));    
-        assert!(!verify(&t, &(key_2.public_key()), &signature));    
-    } 
+    #[test]
+    fn assignment2_transaction_1() {
+        let t = generate_random_transaction();
+        let key = key_pair::random();
+        let signature = sign(&t, &key);
+        assert!(verify(&t, &(key.public_key()), &signature));
+    }
+    #[test]
+    fn assignment2_transaction_2() {
+        let t = generate_random_transaction();
+        let key = key_pair::random();
+        let signature = sign(&t, &key);
+        let key_2 = key_pair::random();
+        let t_2 = generate_random_transaction();
+        assert!(!verify(&t_2, &(key.public_key()), &signature));
+        assert!(!verify(&t, &(key_2.public_key()), &signature));
+    }
 }

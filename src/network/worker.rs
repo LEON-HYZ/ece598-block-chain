@@ -265,6 +265,9 @@ impl Context {
                     for Transaction in Transactions.iter(){
                         if !mempool.Transactions.contains_key(&Transaction.hash()) {
                             //Transaction signature check
+                            if crate::transaction::verify(&Transaction.transaction, &Transaction.publicKey, &Transaction.signature) {
+                                mempool.insert(&Transaction);
+                            }
                         }
                     }
 
