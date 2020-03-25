@@ -1,5 +1,6 @@
 use super::hash::{Hashable, H256};
 use ring::{digest};
+use log::info;
 
 /// A Merkle tree.
 //Use Option<Box<>> for Tree implementation
@@ -47,20 +48,23 @@ impl MerkleTree {
             let mut TreeNodes:Vec<TreeNode> = Vec::new();
 
             if curLength % 2 == 1 {
-                leafNodes.push(TreeNode{val:leafNodes[curLength-1].val,left:leafNodes[curLength-1].left.clone(),right:leafNodes[curLength-1].right.clone()});
+
+                childrenNodes.push(TreeNode{val:childrenNodes[curLength-1].val,left:childrenNodes[curLength-1].left.clone(),right:childrenNodes[curLength-1].right.clone()});
+
             }
 
             while childrenNodes.len() > 0 {
             
                 let leftNode = childrenNodes.remove(0);
                 let leftNodeVal = (leftNode.val).as_ref();
+
                 let rightNode = childrenNodes.remove(0);
                 let rightNodeVal = (rightNode.val).as_ref();
 
                 let parentNodeVal = <H256>::from(digest::digest(&digest::SHA256, &([&leftNodeVal[..], &rightNodeVal[..]].concat())));
                 //println!("parent: {:?}, left: {:?}, right:{:?}", parentNodeVal,leftNode.val,rightNode.val);
                 let parentNode = TreeNode{val: parentNodeVal ,left:Some(Box::new(leftNode)),right:Some(Box::new(rightNode))};
-            
+
                 TreeNodes.push(parentNode);
                 
             }
@@ -69,8 +73,6 @@ impl MerkleTree {
             //println!("curLength:{}", curLength );
         }
         let root = childrenNodes.remove(0);
-        //let leftSub = **(&root.left).as_ref().unwrap();
-        //let rightSub = &root.right;//Some(Box::new(leftSub))
         return MerkleTree{ root:Some(Box::new(root)) ,length:length ,height:height };
     }
     

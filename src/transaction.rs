@@ -21,8 +21,6 @@ use crate::crypto::key_pair;
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct input {
     pub prevTransaction: H256,
-    pub value: u32,
-    pub index: u32,
     pub preOutputIndex: u32,
 }
 
@@ -120,6 +118,7 @@ pub struct Context {
     /// Channel for receiving control signal
     mempool: Arc<Mutex<Mempool>>,
     state: Arc<Mutex<State>>,
+    key_pair: Ed25519KeyPair,
     control_chan: Receiver<ControlSignal>,
     operating_state: OperatingState,
     server: ServerHandle,
@@ -136,12 +135,14 @@ pub fn new(
     server: &ServerHandle,
     mempool: &Arc<Mutex<Mempool>>,
     state: &Arc<Mutex<State>>,
+    key_pair: Ed25519KeyPair,
 ) -> (Context, Handle) {
     let (signal_chan_sender, signal_chan_receiver) = unbounded();
 
     let ctx = Context {
         mempool: Arc::clone(mempool),
         state: Arc::clone(state),
+        key_pair: key_pair,
         control_chan: signal_chan_receiver,
         operating_state: OperatingState::Paused,
         server: server.clone(),
@@ -170,31 +171,29 @@ impl Handle {
 impl Context {
     pub fn start(mut self) {
         thread::Builder::new()
-            .name("tran".to_string())
+            .name("transaction".to_string())
             .spawn(move || {
                 self.transaction_loop();
             })
             .unwrap();
-        info!("Transaction initialized into paused mode");
+        info!("Transaction generator initialized into paused mode");
     }
 
     fn handle_control_signal(&mut self, signal: ControlSignal) {
         match signal {
             ControlSignal::Exit => {
-                info!("Transaction shutting down");
+                info!("Transaction generator shutting down");
                 self.operating_state = OperatingState::ShutDown;
             }
             ControlSignal::Start(i) => {
-                info!("Transaction starting in continuous mode with lambda {}", i);
+                info!("Transaction generator starting in continuous mode with lambda {}", i);
                 self.operating_state = OperatingState::Run(i);
             }
         }
     }
     //transaction generator
     fn transaction_loop(&mut self) {
-        let mut transaction_counter:i32 = 0;
-        //create new keypair for this thread
-        let keypair = key_pair::random();
+        let mut tx_counter:i32 = 0;
         // main mining loop
         loop {
             // check and react to control signals
@@ -212,7 +211,7 @@ impl Context {
                         self.handle_control_signal(signal);
                     }
                     Err(TryRecvError::Empty) => {}
-                    Err(TryRecvError::Disconnected) => panic!("Transaction control channel detached"),
+                    Err(TryRecvError::Disconnected) => panic!("Transaction generator control channel detached"),
                 },
             }
             if let OperatingState::ShutDown = self.operating_state {
@@ -227,17 +226,21 @@ impl Context {
 
             let mut transaction = generate_transaction(&new_hash,&rand_u32_vec,&rand_u32_vec,&rand_addr);
             //let mut test = generate_random_signed_transaction_();
-            let signature = sign(&transaction,&keypair);
-            let SignedTransaction = SignedTransaction::new(&transaction, &signature,&keypair.public_key());
-            //check before inserting to mempool
+            let signature = sign(&transaction,&self.key_pair);
+            let SignedTransaction = SignedTransaction::new(&transaction, &signature,&self.key_pair.public_key());
+            //need to check before inserting to mempool
+
+            tx_counter = tx_counter + 1;
+            //println!("{:?}",tx_counter);
+
             self.mempool.lock().unwrap().insert(&SignedTransaction);
 
-            let mut keyhashes = Vec::<H256>::new();
-            for k in self.mempool.lock().unwrap().Transactions.keys(){
-                keyhashes.push(k.clone());
+            let mut txHashes = Vec::<H256>::new();
+            for hash in self.mempool.lock().unwrap().Transactions.keys(){
+                txHashes.push(hash.clone());
             }
-            if keyhashes.capacity() > 0{
-                self.server.broadcast(Message::NewTransactionHashes(keyhashes));
+            if txHashes.capacity() > 0{
+                self.server.broadcast(Message::NewTransactionHashes(txHashes));
             }
 
             if let OperatingState::Run(i) = self.operating_state {
@@ -251,19 +254,16 @@ impl Context {
 }
 
 //check this
-pub fn generate_transaction(preHash:&H256, inValue:&Vec<u32>, outValue:&Vec<u32>, recpAddress:&H160) -> Transaction {
+pub fn generate_transaction(preHash:&H256, preIndex:&Vec<u32>, outValue:&Vec<u32>, recpAddress:&H160) -> Transaction {
 
     let mut inputVec = Vec::<input>::new();
     let mut outputVec = Vec::<output>::new();
-    let mut inV_count = 0;
-    let mut outV_count = 0;
-    for inV in inValue{
+    let mut out_count = 0;
+    for preI in preIndex{
         let input = input{
             prevTransaction : *preHash,
-            value: *inV,
-            index : inV_count,
+            preOutputIndex: *preI,
         };
-        inV_count = inV_count + 1;
         inputVec.push(input);
     }
 
@@ -271,9 +271,9 @@ pub fn generate_transaction(preHash:&H256, inValue:&Vec<u32>, outValue:&Vec<u32>
         let output = output{
             recpAddress : *recpAddress,
             value : *outV,
-            index: outV_count,
+            index: out_count,
         };
-        outV_count = outV_count + 1;
+        out_count = out_count + 1;
         outputVec.push(output);
     }
 
@@ -330,8 +330,7 @@ pub fn generate_random_transaction_() -> Transaction {
 
     let input = input{
         prevTransaction : new_hash,
-        value: rand_u32,
-        index : rand_u32,
+        preOutputIndex: rand_u32,
     };
 
     let output = output{

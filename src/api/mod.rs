@@ -92,6 +92,31 @@ impl Server {
                             miner.start(lambda);
                             respond_result!(req, true, "ok");
                         }
+                        "/transaction/start" => {
+                            let params = url.query_pairs();
+                            let params: HashMap<_, _> = params.into_owned().collect();
+                            let lambda = match params.get("lambda") {
+                                Some(v) => v,
+                                None => {
+                                    respond_result!(req, false, "missing lambda");
+                                    return;
+                                }
+                            };
+                            let lambda = match lambda.parse::<u64>() {
+                                Ok(v) => v,
+                                Err(e) => {
+                                    respond_result!(
+                                        req,
+                                        false,
+                                        format!("error parsing lambda: {}", e)
+                                    );
+                                    return;
+                                }
+                            };
+                            transaction.start(lambda);
+                            respond_result!(req, true, "ok");
+                        }
+
                         "/network/ping" => {
                             network.broadcast(Message::Ping(String::from("Test ping")));
                             respond_result!(req, true, "ok");

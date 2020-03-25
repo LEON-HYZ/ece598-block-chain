@@ -21,6 +21,7 @@ use std::thread;
 use std::time;
 use std::sync::{Arc, Mutex};
 use crate::crypto::key_pair;
+use ring::signature::KeyPair;
 
 fn main() {
     // parse command line arguments
@@ -78,7 +79,8 @@ fn main() {
             process::exit(1);
         });
 
-
+    let key_pair = key_pair::random();
+    let local_public_key = key_pair.public_key().as_ref().to_vec();
         //create new blockchain
     let mut new_blockchain = blockchain::Blockchain::new();
     let blockchain = Arc::new(Mutex::new(new_blockchain));
@@ -112,6 +114,7 @@ fn main() {
         &server,
         &mempool,
         &state,
+        key_pair,
     );
     transaction_ctx.start();
 
@@ -122,6 +125,7 @@ fn main() {
         &mempool,
         &state,
         &blockchain,
+        local_public_key,
     );
     miner_ctx.start();
 

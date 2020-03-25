@@ -17,6 +17,7 @@ use std::time;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use std::thread;
+use ring::signature::Ed25519KeyPair;
 
 enum ControlSignal {
     Start(u64), // the number controls the lambda of interval between block generation
@@ -31,6 +32,7 @@ enum OperatingState {
 
 pub struct Context {
     /// Channel for receiving control signal
+    local_public_key: Vec<u8>,
     mempool: Arc<Mutex<Mempool>>,
     state: Arc<Mutex<State>>,
     blockchain: Arc<Mutex<Blockchain>>,
@@ -50,10 +52,12 @@ pub fn new(
     mempool: &Arc<Mutex<Mempool>>,
     state: &Arc<Mutex<State>>,
     blockchain: &Arc<Mutex<Blockchain>>,
+    local_public_key: Vec<u8>,
 ) -> (Context, Handle) {
     let (signal_chan_sender, signal_chan_receiver) = unbounded();
 
     let ctx = Context {
+        local_public_key: local_public_key,
         mempool: Arc::clone(mempool),
         state: Arc::clone(state),
         blockchain: Arc::clone(blockchain),
@@ -138,30 +142,39 @@ impl Context {
             let nonce:u32 = thread_rng().gen();
             let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
 
+            // difficulty
             let mut bytes32 = [255u8;32];
             bytes32[0]=0;
             bytes32[1]=5;
             let difficulty : H256 = bytes32.into();
-            let mut transaction = Vec::<SignedTransaction>::new();
-            let mut mempool = self.mempool.lock().unwrap();
-            let block_size_limit = 8;
-            let mut trans_count = 0;
-            //transaction.push(generate_random_transaction_());
 
-            for hash in mempool.Transactions.keys(){
-                if trans_count < block_size_limit{
-                    transaction.push(mempool.Transactions.get(hash).unwrap().clone());
-                    trans_count = trans_count + 1;
+            // read transactions from mempool
+            let mut add_transaction = Vec::<SignedTransaction>::new();
+            let mut mempool = self.mempool.lock().unwrap();
+            let block_size_limit = 6;
+            let mut trans_count = 0;
+            let mut key_iter = mempool.Transactions.keys();
+            //let mut key_need_remove:H256;
+
+            while trans_count < block_size_limit {
+                match key_iter.next() {
+                    Some(hash) => {
+                        //println!("{:?}",hash);
+                        add_transaction.push(mempool.Transactions.get(hash).unwrap().clone());
+                        trans_count = trans_count + 1;
+                    }
+                    None => {
+                    //    break;
+                    }
                 }
+
+
             }
 
-
-
-
-            let mut MerkleTree = MerkleTree::new(&transaction);
+            let mut MerkleTree = MerkleTree::new(&add_transaction);
 
             let newContent = Content{
-                content: transaction,
+                content: add_transaction,
             };
 
             let newHeader = Header{
