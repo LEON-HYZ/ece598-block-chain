@@ -21,6 +21,7 @@ use std::path::Prefix::Verbatim;
 use std::fs::File;
 use std::io::{BufReader, BufRead};
 use std::fs;
+//use std::intrinsics::prefetch_read_data;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct input {
@@ -234,16 +235,17 @@ impl Context {
             //TODO: Read ICO just once and Update State
             if !readICO {
                 // Initialize State
-                println!("local: {:?}", self.local_address);
+                //println!("local: {:?}", self.local_address);
                 let data = fs::read("ICO.txt").expect("Unable to read file");
-                //println!("{:?}", data.len());
-                for i in 0..2 {
+                let data_len: usize = (data.len()/20 )as usize;
+                println!("data_length: {:?}", data.len());
+                for i in 0..data_len {
                     let mut start = i * 20;
                     let mut end = (i+1) * 20;
                     let mut addr_u8: [u8; 20] = [0; 20];
                     addr_u8.clone_from_slice(&data[start..end]);
                     let mut address:H160 = <H160>::from(addr_u8);
-                    println!("all: {:?}", address);
+                    //println!("all: {:?}", address);
                     state.Outputs.insert((<H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8])), i as u32), (100.0 as f32, address));
                     all_address.push(address);
 
@@ -255,6 +257,8 @@ impl Context {
 
                 readICO = true;
             }
+
+            println!("Addr: {:?}, keys: {:?}",self.local_address, state.Outputs);
 
             //check if valid in state
 
@@ -299,6 +303,7 @@ impl Context {
                     if txHashes.capacity() > 0{
                         self.server.broadcast(Message::NewTransactionHashes(txHashes));
                     }
+                    break;
                 }
             }
 
