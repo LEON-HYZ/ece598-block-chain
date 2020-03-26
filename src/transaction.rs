@@ -230,17 +230,24 @@ impl Context {
 
             let mut state = self.state.lock().unwrap();
 
+
             //TODO: Read ICO just once and Update State
             if !readICO {
-                //Update State
+                // Initialize State
+                println!("local: {:?}", self.local_address);
                 let data = fs::read("ICO.txt").expect("Unable to read file");
+                //println!("{:?}", data.len());
                 for i in 0..2 {
                     let mut start = i * 20;
                     let mut end = (i+1) * 20;
-                    let mut address = <H160>::from(<H256>::from(digest::digest(&digest::SHA256, &data[start..end])));
-                    println!("{:?}", address);
+                    let mut addr_u8: [u8; 20] = [0; 20];
+                    addr_u8.clone_from_slice(&data[start..end]);
+                    let mut address:H160 = <H160>::from(addr_u8);
+                    println!("all: {:?}", address);
                     state.Outputs.insert((<H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8])), i as u32), (100.0 as f32, address));
                     all_address.push(address);
+
+                    //Record addresses
                     if !(address == self.local_address) {
                         other_address.push(address);
                     }

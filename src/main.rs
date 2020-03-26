@@ -29,6 +29,7 @@ use std::io::Write;
 use std::fs::File;
 use std::io::{BufReader, BufRead};
 use std::fs;
+//use std::intrinsics::prefetch_read_instruction;
 
 
 fn main() {
@@ -90,6 +91,8 @@ fn main() {
     let key_pair = key_pair::random();
     let local_public_key = key_pair.public_key().as_ref().to_vec();
     let local_address = <H160>::from(<H256>::from(digest::digest(&digest::SHA256, &local_public_key[..])));
+    let local_addr_u8: [u8; 20] = <[u8; 20]>::from(local_address);
+    println!("generate: {:?}",local_address);
         //create new blockchain
     let mut new_blockchain = blockchain::Blockchain::new();
     let blockchain = Arc::new(Mutex::new(new_blockchain));
@@ -103,7 +106,7 @@ fn main() {
     // let new_file = std::fs::File::create("ICO.txt").expect("create failed");
     let new_file = OpenOptions::new().write(true).create_new(true).open("ICO.txt");
     let mut file = OpenOptions::new().append(true).open("ICO.txt").expect("cannot open file");
-    file.write_all(&local_public_key[..]).expect("write failed");
+    file.write_all(&local_addr_u8).expect("write failed");
     // file.write_all("/n".as_bytes()).expect("write failed");
     // let mut new_sum_delay:f32 = 0.0;
     // let sum_delay = Arc::new(Mutex::new(new_sum_delay));
@@ -111,7 +114,7 @@ fn main() {
     // let num_delay = Arc::new(Mutex::new(new_num_delay));
 
     let data = fs::read("ICO.txt").expect("Unable to read file");
-    println!("{:?}", data);
+    //println!("{:?}", data);
     
 
 
