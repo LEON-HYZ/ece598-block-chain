@@ -5,7 +5,7 @@ use crossbeam::channel;
 use log::{debug, warn};
 
 use std::sync::{Arc, Mutex};
-use crate::crypto::hash::{H256, Hashable};
+use crate::crypto::hash::{H256, Hashable, H160};
 use crate::blockchain::Blockchain;
 use crate::block::{Block,Header,Content};
 use crate::crypto::merkle::{MerkleTree};
@@ -67,6 +67,7 @@ pub struct Context {
     orphanbuffer: Arc<Mutex<OrphanBuffer>>,
     mempool: Arc<Mutex<Mempool>>,
     state: Arc<Mutex<State>>,
+    local_address: H160,
     // sum_delay: &Arc<Mutex<f32>>,
     // num_delay: &Arc<Mutex<u8>>,
     msg_chan: channel::Receiver<(Vec<u8>, peer::Handle)>,
@@ -79,6 +80,7 @@ pub fn new(
     orphanbuffer: &Arc<Mutex<OrphanBuffer>>,
     mempool: &Arc<Mutex<Mempool>>,
     state: &Arc<Mutex<State>>,
+    local_address: &H160,
     // sum_delay: &Arc<Mutex<f32>>,
     // num_delay: &Arc<Mutex<u8>>,
     num_worker: usize,
@@ -90,6 +92,7 @@ pub fn new(
         orphanbuffer: Arc::clone(orphanbuffer),
         mempool: Arc::clone(mempool),
         state: Arc::clone(state),
+        local_address: *local_address,
         // sum_delay: Arc::clone(sum_delay),
         // num_delay: Arc::clone(num_delay),
         msg_chan: msg_src,
@@ -183,6 +186,8 @@ impl Context {
                                     //println!("block parent: {:?}", block.getparent());
                                     //println!("tip H256: {:?}", blockchain.tip.0);
                                     blockchain.insert(&block);
+                                    //TODO: Update State
+
                                     let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
                                     let mut delay_u128 = now - block.gettimestamp();
                                     let delay = delay_u128 as f32;
@@ -236,7 +241,7 @@ impl Context {
                     let mut notContainedHashes = Vec::<H256>::new();
                     if hashes.len() != 0 {
                         for hash in hashes.iter() {
-                            if !mempool.Transactions.get(&hash).is_none() {
+                            if mempool.Transactions.get(&hash).is_none() {
                                 notContainedHashes.push(*hash);
                             }
                         }
@@ -267,19 +272,22 @@ impl Context {
                     let mut mempool = self.mempool.lock().unwrap();
                     let mut state = self.state.lock().unwrap();
                     let mut Transactions = Transactions.clone();
+                    let mut addedTransactionHashes = Vec::<H256>::new();
 
                     for Transaction in Transactions.iter(){
                         if !mempool.Transactions.contains_key(&Transaction.hash()) {
                             //Transaction signature check
                             let public_key = &Transaction.publicKey[..];
                             let signature = &Transaction.signature[..];
-
                             let public_key_ = ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public_key.as_ref());
                             if public_key_.verify(&bincode::serialize(&Transaction).unwrap()[..],signature.as_ref()) == Ok(()){
-                                
-
+                                mempool.insert(Transaction);
+                                addedTransactionHashes.push(Transaction.hash());
                             }
                         }
+                    }
+                    if addedTransactionHashes.capacity() > 0 {
+                        self.server.broadcast(Message::NewTransactionHashes(addedTransactionHashes));
                     }
 
                 }

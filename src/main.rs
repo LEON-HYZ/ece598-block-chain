@@ -22,6 +22,8 @@ use std::time;
 use std::sync::{Arc, Mutex};
 use crate::crypto::key_pair;
 use ring::signature::KeyPair;
+use crate::crypto::hash::{H256, H160};
+use ring::digest;
 
 fn main() {
     // parse command line arguments
@@ -81,6 +83,7 @@ fn main() {
 
     let key_pair = key_pair::random();
     let local_public_key = key_pair.public_key().as_ref().to_vec();
+    let local_address = <H160>::from(<H256>::from(digest::digest(&digest::SHA256, &local_public_key[..])));
         //create new blockchain
     let mut new_blockchain = blockchain::Blockchain::new();
     let blockchain = Arc::new(Mutex::new(new_blockchain));
@@ -90,6 +93,8 @@ fn main() {
     let mempool = Arc::new(Mutex::new(new_Mempool));
     let mut new_State = transaction::State::new();
     let state = Arc::new(Mutex::new(new_State));
+    //TODO: Add ICO
+
     // let mut new_sum_delay:f32 = 0.0;
     // let sum_delay = Arc::new(Mutex::new(new_sum_delay));
     // let mut new_num_delay:u8 = 0.0;
@@ -101,6 +106,7 @@ fn main() {
         &orphanbuffer,
         &mempool,
         &state,
+        &local_address,
         // &sum_delay,
         // &num_delay,
         p2p_workers,
@@ -115,6 +121,7 @@ fn main() {
         &mempool,
         &state,
         key_pair,
+        &local_address,
     );
     transaction_ctx.start();
 
@@ -125,7 +132,8 @@ fn main() {
         &mempool,
         &state,
         &blockchain,
-        local_public_key,
+        &local_public_key[..],
+        &local_address,
     );
     miner_ctx.start();
 
