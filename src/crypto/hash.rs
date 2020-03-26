@@ -166,6 +166,16 @@ impl std::convert::From<&[u8; 32]> for H160 {
     }
 }
 
+
+impl std::convert::From<H256> for H160 {
+    fn from(input: H256) -> H160 {
+        let buffer256:[u8; 32] = input.0;
+        let mut buffer160: [u8; 20] = [0; 20];
+        buffer160[..].copy_from_slice(&buffer256[12..32]);
+        H160(buffer160)
+    }
+}
+
 impl std::convert::From<[u8; 20]> for H160 {
     fn from(input: [u8; 20]) -> H160 {
         H160(input)

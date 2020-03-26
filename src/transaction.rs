@@ -18,6 +18,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use std::thread;
 use crate::crypto::key_pair;
 use std::path::Prefix::Verbatim;
+use std::fs::File;
+use std::io::{BufReader, BufRead};
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct input {
@@ -237,7 +239,7 @@ impl Context {
                 for (index, line) in reader.lines().enumerate() {
                     let line = line.unwrap(); // Ignore errors.
                     // Show the line and its number.
-                    let address = <H160>::from(<H256>::from(digest::digest(&digest::SHA256, &line[..])));
+                    let address = <H160>::from(<H256>::from(digest::digest(&digest::SHA256, &line.into_bytes()[..])));
                     all_address.push(address);
                     if !(address == self.local_address) {
                         other_address.push(address);
@@ -254,7 +256,7 @@ impl Context {
             for State in state.Outputs.keys() {
                 //state check to avoid double spent
                 //State: hash, output index <-> value, recipient address
-                if state.Outputs.get(State).1 == self.local_address {
+                if state.Outputs.get(State).unwrap().1 == self.local_address {
 
                     let pre_hash = State.0;
                     let mut out_value = Vec::<f32>::new();
@@ -266,8 +268,8 @@ impl Context {
                     recp_addr.push(dest_addr);
                     recp_addr.push(self.local_address);
 
-                    let dest_value = (0.5 * state.Outputs.get(State).0) as f32;
-                    let rest_value = (state.Outputs.get(State).0) - dest_value;
+                    let dest_value = (0.5 * state.Outputs.get(State).unwrap().0) as f32;
+                    let rest_value = (state.Outputs.get(State).unwrap().0) - dest_value;
                     out_value.push(dest_value);
                     out_value.push(rest_value);
 
@@ -320,8 +322,8 @@ pub fn generate_transaction(preHash:&H256, preIndex:&Vec<u32>, outValue:&Vec<f32
     let mut out_count = 0;
     for out in 0..outValue.len() {
         let output = output{
-            recpAddress : *recpAddress[out],
-            value : *outValue[out],
+            recpAddress : recpAddress[out],
+            value : outValue[out],
             index: out_count,
         };
         out_count = out_count + 1;
