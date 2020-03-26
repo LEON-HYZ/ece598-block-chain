@@ -187,6 +187,19 @@ impl Context {
                                     //println!("tip H256: {:?}", blockchain.tip.0);
                                     blockchain.insert(&block);
                                     //TODO: Update State
+                                    let mut state = self.state.lock().unwrap();
+                                    let mut content = block.Content.content.clone();
+                                    for signedtransaction in content {
+                                        let mut h = signedtransaction.hash();
+                                        for input in signedtransaction.transaction.Input {
+                                            if state.Outputs.contains_key(&(input.prevTransaction, input.preOutputIndex)) {
+                                                state.Outputs.remove(&(input.prevTransaction, input.preOutputIndex));
+                                            }
+                                        }
+                                        for output in signedtransaction.transaction.Output {
+                                            state.Outputs.insert((h, output.index), (output.value, output.recpAddress));
+                                        }
+                                    }
 
                                     let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
                                     let mut delay_u128 = now - block.gettimestamp();

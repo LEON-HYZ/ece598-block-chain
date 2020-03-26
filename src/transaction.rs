@@ -258,7 +258,7 @@ impl Context {
                 readICO = true;
             }
 
-            println!("Addr: {:?}, keys: {:?}",self.local_address, state.Outputs);
+            // println!("Addr: {:?}, keys: {:?}",self.local_address, state.Outputs);
 
             //check if valid in state
 

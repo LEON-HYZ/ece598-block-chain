@@ -213,7 +213,18 @@ impl Context {
                     }
 
                     //TODO:State Update
-
+                    let mut state = self.state.lock().unwrap();
+                    for signedtransaction in newBlock.Content.content {
+                        let mut h = signedtransaction.hash();
+                        for input in signedtransaction.transaction.Input {
+                            if state.Outputs.contains_key(&(input.prevTransaction, input.preOutputIndex)) {
+                                state.Outputs.remove(&(input.prevTransaction, input.preOutputIndex));
+                            }
+                        }
+                        for output in signedtransaction.transaction.Output {
+                            state.Outputs.insert((h, output.index), (output.value, output.recpAddress));
+                        }
+                    }
                     //println!("Current tip: {:?}", blockchain.tip() );
 
                     self.server.broadcast(Message::NewBlockHashes(self.blockchain.lock().unwrap().all_blocks_in_longest_chain()));
