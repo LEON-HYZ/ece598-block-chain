@@ -20,6 +20,7 @@ use crate::crypto::key_pair;
 use std::path::Prefix::Verbatim;
 use std::fs::File;
 use std::io::{BufReader, BufRead};
+use std::fs;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct input {
@@ -232,22 +233,19 @@ impl Context {
             //TODO: Read ICO just once and Update State
             if !readICO {
                 //Update State
-                let file = File::open("ICO.txt").unwrap();
-                let reader = BufReader::new(file);
-
-                // Read the file line by line using the lines() iterator from std::io::BufRead.
-                for (index, line) in reader.lines().enumerate() {
-                    let line = line.unwrap(); // Ignore errors.
-                    // Show the line and its number.
-                    let address = <H160>::from(<H256>::from(digest::digest(&digest::SHA256, &line.into_bytes()[..])));
+                let data = fs::read("ICO.txt").expect("Unable to read file");
+                for i in 0..2 {
+                    let mut start = i * 20;
+                    let mut end = (i+1) * 20;
+                    let mut address = <H160>::from(<H256>::from(digest::digest(&digest::SHA256, &data[start..end])));
+                    println!("{:?}", address);
+                    state.Outputs.insert((<H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8])), i as u32), (100.0 as f32, address));
                     all_address.push(address);
                     if !(address == self.local_address) {
                         other_address.push(address);
                     }
                 }
-                state.Outputs.insert((<H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8])), 0), (100.0 as f32, all_address[0]));
-                state.Outputs.insert((<H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8])), 1), (100.0 as f32, all_address[1]));
-                state.Outputs.insert((<H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8])), 2), (100.0 as f32, all_address[2]));
+
                 readICO = true;
             }
 
@@ -264,7 +262,9 @@ impl Context {
                     let mut pre_index = [State.1].to_vec();
 
                     //TODO:let dest_addr = random addr from 2 processes
-                    let dest_addr:H160 = Default::default();
+                    let mut rng = rand::thread_rng();
+                    let mut num = rng.gen_range(0, 2);
+                    let dest_addr:H160 = other_address[num];
                     recp_addr.push(dest_addr);
                     recp_addr.push(self.local_address);
 

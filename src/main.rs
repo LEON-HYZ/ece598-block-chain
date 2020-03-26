@@ -26,6 +26,10 @@ use crate::crypto::hash::{H256, H160};
 use ring::digest;
 use std::fs::OpenOptions;
 use std::io::Write;
+use std::fs::File;
+use std::io::{BufReader, BufRead};
+use std::fs;
+
 
 fn main() {
     // parse command line arguments
@@ -96,14 +100,19 @@ fn main() {
     let mut new_State = transaction::State::new();
     let state = Arc::new(Mutex::new(new_State));
     //TODO: Add ICO
-    let new_file = std::fs::File::create("ICO.txt").expect("create failed");
+    // let new_file = std::fs::File::create("ICO.txt").expect("create failed");
+    let new_file = OpenOptions::new().write(true).create_new(true).open("ICO.txt");
     let mut file = OpenOptions::new().append(true).open("ICO.txt").expect("cannot open file");
     file.write_all(&local_public_key[..]).expect("write failed");
-    file.write_all("/n".as_bytes()).expect("write failed");
+    // file.write_all("/n".as_bytes()).expect("write failed");
     // let mut new_sum_delay:f32 = 0.0;
     // let sum_delay = Arc::new(Mutex::new(new_sum_delay));
     // let mut new_num_delay:u8 = 0.0;
     // let num_delay = Arc::new(Mutex::new(new_num_delay));
+
+    let data = fs::read("ICO.txt").expect("Unable to read file");
+    println!("{:?}", data);
+    
 
 
     let worker_ctx = worker::new(
