@@ -270,7 +270,7 @@ impl Context {
 
                     //TODO:let dest_addr = random addr from 2 processes
                     let mut rng = rand::thread_rng();
-                    let mut num = rng.gen_range(0, 2);
+                    let mut num = rng.gen_range(0, other_address.len());
                     let dest_addr:H160 = other_address[num];
                     recp_addr.push(dest_addr);
                     recp_addr.push(self.local_address);
