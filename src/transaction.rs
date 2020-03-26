@@ -199,6 +199,8 @@ impl Context {
     fn transaction_loop(&mut self) {
         let mut tx_counter:i32 = 0;
         let mut readICO: bool = false;
+        let mut other_address = Vec::<H160>::new();
+        let mut all_address = Vec::<H160>::new();
         // main mining loop
         loop {
             // check and react to control signals
@@ -223,14 +225,32 @@ impl Context {
                 return;
             }
 
+            let mut state = self.state.lock().unwrap();
+
             //TODO: Read ICO just once and Update State
             if !readICO {
                 //Update State
+                let file = File::open("ICO.txt").unwrap();
+                let reader = BufReader::new(file);
+
+                // Read the file line by line using the lines() iterator from std::io::BufRead.
+                for (index, line) in reader.lines().enumerate() {
+                    let line = line.unwrap(); // Ignore errors.
+                    // Show the line and its number.
+                    let address = <H160>::from(<H256>::from(digest::digest(&digest::SHA256, &line[..])));
+                    all_address.push(address);
+                    if !(address == self.local_address) {
+                        other_address.push(address);
+                    }
+                }
+                state.Outputs.insert((<H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8])), 0), (100.0 as f32, all_address[0]));
+                state.Outputs.insert((<H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8])), 1), (100.0 as f32, all_address[1]));
+                state.Outputs.insert((<H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8])), 2), (100.0 as f32, all_address[2]));
                 readICO = true;
             }
 
             //check if valid in state
-            let mut state = self.state.lock().unwrap();
+
             for State in state.Outputs.keys() {
                 //state check to avoid double spent
                 //State: hash, output index <-> value, recipient address
