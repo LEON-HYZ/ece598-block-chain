@@ -98,6 +98,18 @@ pub fn verify(t: &Transaction, public_key: &<Ed25519KeyPair as KeyPair>::PublicK
 
 }
 
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct StateSet {
+    pub Set: HashMap<H256,State>, // hash <-> state
+}
+
+impl StateSet {
+    pub fn new() -> Self{
+        let hashmap:HashMap<H256,State> = HashMap::new();
+        return StateSet{Set:hashmap,}
+    }
+}
+
 
 //transaction Handle Begins
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -140,6 +152,7 @@ pub struct Context {
     /// Channel for receiving control signal
     mempool: Arc<Mutex<Mempool>>,
     state: Arc<Mutex<State>>,
+    stateSet: Arc<Mutex<StateSet>>,
     key_pair: Ed25519KeyPair,
     local_address: H160,
     control_chan: Receiver<ControlSignal>,
@@ -158,6 +171,7 @@ pub fn new(
     server: &ServerHandle,
     mempool: &Arc<Mutex<Mempool>>,
     state: &Arc<Mutex<State>>,
+    stateSet: &Arc<Mutex<StateSet>>,
     key_pair: Ed25519KeyPair,
     local_address: &H160,
 ) -> (Context, Handle) {
@@ -166,6 +180,7 @@ pub fn new(
     let ctx = Context {
         mempool: Arc::clone(mempool),
         state: Arc::clone(state),
+        stateSet: Arc::clone(stateSet),
         key_pair: key_pair,
         local_address: *local_address,
         control_chan: signal_chan_receiver,
@@ -471,6 +486,10 @@ impl State {
         }
 
     }
+
+    // pub fn backtrack(&mut self) {
+    //     self.
+    // }
 
 }
 //state Ends

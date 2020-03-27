@@ -6,7 +6,7 @@ use crate::crypto::hash::{H256, Hashable, H160};
 use crate::blockchain::Blockchain;
 use crate::block::{Block,Header,Content};
 use crate::crypto::merkle::{MerkleTree};
-use crate::transaction::{Transaction, generate_random_transaction_, Mempool, State, SignedTransaction};
+use crate::transaction::{Transaction, generate_random_transaction_, Mempool, State, StateSet, SignedTransaction};
 use rand::{thread_rng, Rng};
 use ring::{digest};
 
@@ -36,6 +36,7 @@ pub struct Context {
     local_public_key: Vec<u8>,
     mempool: Arc<Mutex<Mempool>>,
     state: Arc<Mutex<State>>,
+    stateSet: Arc<Mutex<StateSet>>,
     blockchain: Arc<Mutex<Blockchain>>,
     control_chan: Receiver<ControlSignal>,
     operating_state: OperatingState,
@@ -52,6 +53,7 @@ pub fn new(
     server: &ServerHandle,
     mempool: &Arc<Mutex<Mempool>>,
     state: &Arc<Mutex<State>>,
+    stateSet: &Arc<Mutex<StateSet>>,
     blockchain: &Arc<Mutex<Blockchain>>,
     local_public_key: &[u8],
     local_address: &H160,
@@ -63,6 +65,7 @@ pub fn new(
         local_public_key: (*local_public_key).to_owned(),
         mempool: Arc::clone(mempool),
         state: Arc::clone(state),
+        stateSet: Arc::clone(stateSet),
         blockchain: Arc::clone(blockchain),
         control_chan: signal_chan_receiver,
         operating_state: OperatingState::Paused,
@@ -239,6 +242,7 @@ impl Context {
                         let mut contents = newBlock.Content.content.clone();
                         let mut state = self.state.lock().unwrap();
                         let mut mempool = self.mempool.lock().unwrap();
+                        let mut stateSet = self.stateSet.lock().unwrap();
                         let mut check = true;
                         for content in contents.iter(){
                             if state.ifNotDoubleSpent(content) && content.verifySignedTransaction() {
@@ -252,7 +256,9 @@ impl Context {
                         std::mem::drop(state);
                         std::mem::drop(mempool);
                         if check {
-                            self.blockchain.lock().unwrap().insert(&newBlock);
+
+                            let tip_hash = self.blockchain.lock().unwrap().insert(&newBlock);
+
 
                             //info!("MINER: NEW BLOCK ADDED");
                             miner_counter += 1;
@@ -261,11 +267,20 @@ impl Context {
 
                             let mut state = self.state.lock().unwrap();
                             let mut mempool = self.mempool.lock().unwrap();
+                            if stateSet.Set.contains_key(&tip_hash) {
+                                // let new_state = stateSet.Set.get(&tip_hash).unwrap().Outputs;
+                                state.Outputs.clear();
+                                for (key, value) in stateSet.Set.get(&tip_hash).unwrap().Outputs.clone() {
+                                    state.Outputs.insert(key, value);
+                                }
+                            }
                             //Update Mempool
-                            mempool.updateMempool(&contents);
+
                             //println!("MINER: UPDATED MEMPOOL: {:?}", mempool.Transactions.keys());
                             //Update State
                             state.updateState(&contents);
+                            stateSet.Set.insert(newBlock.hash(), state.clone());
+                            mempool.updateMempool(&contents);
                             for key in state.Outputs.keys() {
                                 println!("MINER: UPDATED STATE ADDR: {:?}, VALUE {:?}", state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
                             }

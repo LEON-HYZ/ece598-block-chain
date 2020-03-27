@@ -102,6 +102,8 @@ fn main() {
     let mempool = Arc::new(Mutex::new(new_Mempool));
     let mut new_State = transaction::State::new();
     let state = Arc::new(Mutex::new(new_State));
+    let mut new_StateSet = transaction::StateSet::new();
+    let stateSet = Arc::new(Mutex::new(new_StateSet));
     //TODO: Add ICO
     // let new_file = std::fs::File::create("ICO.txt").expect("create failed");
     let new_file = OpenOptions::new().write(true).create_new(true).open("ICO.txt");
@@ -121,7 +123,7 @@ fn main() {
         info!("Three processes are connected");
     }
     //println!("{:?}", data);
-    
+
 
 
     let worker_ctx = worker::new(
@@ -129,6 +131,7 @@ fn main() {
         &orphanbuffer,
         &mempool,
         &state,
+        &stateSet,
         &local_address,
         // &sum_delay,
         // &num_delay,
@@ -143,6 +146,7 @@ fn main() {
         &server,
         &mempool,
         &state,
+        &stateSet,
         key_pair,
         &local_address,
     );
@@ -154,6 +158,7 @@ fn main() {
         &server,
         &mempool,
         &state,
+        &stateSet,
         &blockchain,
         &local_public_key[..],
         &local_address,

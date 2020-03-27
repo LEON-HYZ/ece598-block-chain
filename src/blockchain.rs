@@ -26,14 +26,16 @@ impl Blockchain {
     }
 
     /// Insert a block into blockchain
-    pub fn insert(&mut self, block: &Block) {
+    pub fn insert(&mut self, block: &Block) -> H256 {
         let last_block = block.clone();
         let h = self.Blocks.get(&(last_block.getparent())).as_ref().unwrap().1 + 1;
         self.Blocks.insert(block.hash(), (last_block, h));
         if self.tip.1 < h{
             self.tip = (block.hash(), h);
+
         }
         // self.tip = block.hash();
+        return self.tip.0;
     }
 
     /// Get the last block's hash of the longest chain

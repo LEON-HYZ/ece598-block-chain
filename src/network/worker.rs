@@ -9,7 +9,7 @@ use crate::crypto::hash::{H256, Hashable, H160};
 use crate::blockchain::Blockchain;
 use crate::block::{Block,Header,Content};
 use crate::crypto::merkle::{MerkleTree};
-use crate::transaction::{Mempool, State, SignedTransaction};
+use crate::transaction::{Mempool, State, StateSet, SignedTransaction};
 use ring::signature::{Ed25519KeyPair, Signature, KeyPair, VerificationAlgorithm, EdDSAParameters};
 
 use std::collections::HashMap;
@@ -70,6 +70,7 @@ pub struct Context {
     orphanbuffer: Arc<Mutex<OrphanBuffer>>,
     mempool: Arc<Mutex<Mempool>>,
     state: Arc<Mutex<State>>,
+    stateSet: Arc<Mutex<StateSet>>,
     local_address: H160,
     // sum_delay: &Arc<Mutex<f32>>,
     // num_delay: &Arc<Mutex<u8>>,
@@ -83,6 +84,7 @@ pub fn new(
     orphanbuffer: &Arc<Mutex<OrphanBuffer>>,
     mempool: &Arc<Mutex<Mempool>>,
     state: &Arc<Mutex<State>>,
+    stateSet: &Arc<Mutex<StateSet>>,
     local_address: &H160,
     // sum_delay: &Arc<Mutex<f32>>,
     // num_delay: &Arc<Mutex<u8>>,
@@ -95,6 +97,7 @@ pub fn new(
         orphanbuffer: Arc::clone(orphanbuffer),
         mempool: Arc::clone(mempool),
         state: Arc::clone(state),
+        stateSet: Arc::clone(stateSet),
         local_address: *local_address,
         // sum_delay: Arc::clone(sum_delay),
         // num_delay: Arc::clone(num_delay),
@@ -198,6 +201,7 @@ impl Context {
                                     let mut contents = block.Content.content.clone();
                                     let mut state = self.state.lock().unwrap();
                                     let mut mempool = self.mempool.lock().unwrap();
+                                    let mut stateSet = self.stateSet.lock().unwrap();
                                     let mut check = true;
 
                                     for content in contents.iter(){
@@ -215,14 +219,23 @@ impl Context {
                                     std::mem::drop(mempool);
 
                                     if check{
-                                        blockchain.insert(&block);
+                                        let tip_hash = blockchain.insert(&block);
+
                                         //info!("WORKER: BLOCKS RECEIVED");
                                         println!("WORKER: CURRENT BLOCKCHAIN HEIGHT: {:?}", blockchain.tip.1);
                                         // info!("Worker: Blocks mined by one can be received by the other.");
                                         let mut state = self.state.lock().unwrap();
                                         let mut mempool = self.mempool.lock().unwrap();
+                                        if stateSet.Set.contains_key(&tip_hash) {
+                                            // let new_state = stateSet.Set.get(&tip_hash).unwrap().Outputs;
+                                            state.Outputs.clear();
+                                            for (key, value) in stateSet.Set.get(&tip_hash).unwrap().Outputs.clone() {
+                                                state.Outputs.insert(key, value);
+                                            }
+                                        }
                                         // TODO: Update State
                                         state.updateState(&contents);
+                                        stateSet.Set.insert(block.hash(), state.clone());
                                         //TODO: Update Mempool
                                         mempool.updateMempool(&contents);
                                         for key in state.Outputs.keys() {
