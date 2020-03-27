@@ -184,7 +184,9 @@ impl Context {
                 let mut mempool = self.mempool.lock().unwrap();
 
                 let mut key_iter= mempool.Transactions.keys();
-                println!("MINER: MEMPOOL {:?}", key_iter);
+                for key in mempool.Transactions.keys(){
+                    println!("MINER: MEMPOOL KEYS:{:?}, INPUT: {:?}, OUTPUT: {:?}", key, mempool.Transactions.get(key).unwrap().transaction.Input, mempool.Transactions.get(key).unwrap().transaction.Output);
+                }
                 while tx_counter < block_size_limit {
                     match key_iter.next() {
                         Some(hash) => {
@@ -252,7 +254,7 @@ impl Context {
                         state.updateState(&newBlock.Content.content);
                         //println!("Current tip: {:?}", blockchain.tip() );
                         for key in state.Outputs.keys(){
-                            println!("MINER: UPDATED STATE ADDR: {:?}, VALUE {:?}", state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
+                            println!("MINER: UPDATED STATE PREHASH:{:?}, PREINDEX:{:?}, ADDR: {:?}, VALUE {:?}", key.0, key.1, state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
                         }
                         std::mem::drop(state);
 

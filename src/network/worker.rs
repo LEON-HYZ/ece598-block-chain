@@ -134,7 +134,7 @@ impl Context {
                 Message::NewBlockHashes(hashes) => {
                     //debug!("NewBlockHashes: {:?}", hashes);
                     //self.server.broadcast(Message::NewBlockHashes(hashes.clone()));
-                    //info!("WORKER: RECEIVED BLOCK MESSAGES");
+                    info!("WORKER: RECEIVED BLOCK MESSAGES");
                     let mut notContainedHashes = Vec::<H256>::new();
                     let mut blockchain = self.blockchain.lock().unwrap();
                     let mut orphanbuffer = self.orphanbuffer.lock().unwrap();
@@ -154,7 +154,7 @@ impl Context {
 
                 Message::GetBlocks(hashes) => {
                     //debug!("GetBlocks: {:?}", hashes);
-                    //info!("WORKER: ASKED FOR BLOCKS");
+                    info!("WORKER: BLOCKS REQUIRED");
                     let mut notContainedBlocks = Vec::<Block>::new();
                     let mut hashes = hashes.clone();
                     let mut blockchain = self.blockchain.lock().unwrap();
@@ -174,7 +174,7 @@ impl Context {
 
                 Message::Blocks(blocks) => {
                     //debug!("Blocks: {:?}", blocks);
-                    //info!("WORKER: START RECEIVING BLOCKS");
+                    info!("WORKER: START RECEIVING BLOCKS");
                     let mut blocks = blocks.clone();
                     let mut blockchain = self.blockchain.lock().unwrap();
                     let mut orphanbuffer = self.orphanbuffer.lock().unwrap();
@@ -183,15 +183,15 @@ impl Context {
                     let mut newlyProcessedBlockHashes = Vec::<H256>::new();
 
                     for block in blocks.iter() {
-                        //info!("WORKER: RECEIVING BLOCKS...");
+                        info!("WORKER: RECEIVING BLOCKS...");
                         //PoW check
                         let difficulty = blockchain.Blocks.get(&blockchain.tip.0).unwrap().0.getdifficulty();
                         if block.hash() <=  difficulty{
-                            //info!("WORKER: DIFFICULTY CHECK1 SUCCESS");
+                            info!("WORKER: DIFFICULTY CHECK1 SUCCESS");
                             if block.Header.difficulty == difficulty{
-                                //info!("WORKER: DIFFICULTY CHECK2 SUCCESS");
+                                info!("WORKER: DIFFICULTY CHECK2 SUCCESS");
                                 if !blockchain.Blocks.get(&block.getparent()).is_none(){
-                                    //info!("WORKER: PARENT CHECK SUCCESS");
+                                    info!("WORKER: PARENT CHECK SUCCESS");
                                     //println!("block parent: {:?}", block.getparent());
                                     //println!("WORKER: PRESENT TIP {:?}", blockchain.tip.0);
                                     //double spend check & signature check
@@ -199,7 +199,11 @@ impl Context {
                                     let mut state = self.state.lock().unwrap();
                                     let mut mempool = self.mempool.lock().unwrap();
                                     let mut check = true;
+                                    for key in state.Outputs.keys(){
+                                        println!("WORKER CHECK: STATE PREHASH:{:?}, PREINDEX:{:?}, ADDR: {:?}, VALUE {:?}", key.0, key.1, state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
+                                    }
                                     for content in contents.iter(){
+                                        println!("verify: {:?}, double: {:?}",content.verifySignedTransaction() , state.ifNotDoubleSpent(content));
                                         if state.ifNotDoubleSpent(content) && content.verifySignedTransaction() {
                                             check = check && true;
                                         }
@@ -214,7 +218,7 @@ impl Context {
                                         blockchain.insert(&block);
                                         let mut state = self.state.lock().unwrap();
                                         let mut mempool = self.mempool.lock().unwrap();
-                                        //info!("WORKER: BLOCKS RECEIVED");
+                                        info!("WORKER: BLOCKS RECEIVED");
                                         // info!("Worker: Blocks mined by one can be received by the other.");
                                         // TODO: Update State
                                         state.updateState(&contents);
@@ -338,6 +342,7 @@ impl Context {
                     }
                     std::mem::drop(mempool);
                     if notContainedTransactions.len() != 0{
+                        info!("WORKER: SENDING TXS");
                         peer.write(Message::Transactions(notContainedTransactions));
                     }
 
@@ -355,6 +360,7 @@ impl Context {
                         if !mempool.Transactions.contains_key(&Transaction.hash()) {
                             //Transaction signature check
                             //info!("checking");
+                            println!("verify: {:?}, double: {:?}",Transaction.verifySignedTransaction() , state.ifNotDoubleSpent(Transaction));
                             if Transaction.verifySignedTransaction() && state.ifNotDoubleSpent(Transaction) {
                                 //info!("added");
                                 info!("WORKER: NEW TRANSACTIONS ADDED!");

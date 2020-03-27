@@ -334,17 +334,24 @@ impl Context {
                     //need to check signature before inserting to mempool
 
                     let mut mempool = self.mempool.lock().unwrap();
-                    if (!mempool.Transactions.contains_key(&SignedTransaction.hash())) && SignedTransaction.verifySignedTransaction() {
+                    let mut state = self.state.lock().unwrap();
+                    if (!mempool.Transactions.contains_key(&SignedTransaction.hash()))
+                        && SignedTransaction.verifySignedTransaction()
+                        && state.ifNotDoubleSpent(&SignedTransaction){
                         mempool.insert(&SignedTransaction);
                         tx_counter = tx_counter + 1;
                         //println!("{:?}",tx_counter);
                         //info!("There is a transaction generator that can put transactions into these clients.");
-                        println!("TXG: MEMPOOL: {:?}", mempool.Transactions.keys());
                         let mut txHash = Vec::<H256>::new();
-                        txHash.push(SignedTransaction.hash().clone());
+                        for key in mempool.Transactions.keys(){
+                            txHash.push(key.clone());
+                            println!("TXG: MEMPOOL KEYS:{:?}, INPUT: {:?}, OUTPUT: {:?}", key, mempool.Transactions.get(key).unwrap().transaction.Input, mempool.Transactions.get(key).unwrap().transaction.Output);
+                        }
+                        //txHash.push(SignedTransaction.hash().clone());
                         self.server.broadcast(Message::NewTransactionHashes(txHash));
                     }
                     std::mem::drop(mempool);
+                    std::mem::drop(state);
                 }
 
             }
