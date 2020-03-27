@@ -134,7 +134,7 @@ impl Context {
                 Message::NewBlockHashes(hashes) => {
                     //debug!("NewBlockHashes: {:?}", hashes);
                     //self.server.broadcast(Message::NewBlockHashes(hashes.clone()));
-                    info!("WORKER: RECEIVED BLOCK MESSAGES");
+                    //info!("WORKER: RECEIVED BLOCK MESSAGES");
                     let mut notContainedHashes = Vec::<H256>::new();
                     let mut blockchain = self.blockchain.lock().unwrap();
                     let mut orphanbuffer = self.orphanbuffer.lock().unwrap();
@@ -154,7 +154,7 @@ impl Context {
 
                 Message::GetBlocks(hashes) => {
                     //debug!("GetBlocks: {:?}", hashes);
-                    info!("WORKER: ASKED FOR BLOCKS");
+                    //info!("WORKER: ASKED FOR BLOCKS");
                     let mut notContainedBlocks = Vec::<Block>::new();
                     let mut hashes = hashes.clone();
                     let mut blockchain = self.blockchain.lock().unwrap();
@@ -174,7 +174,7 @@ impl Context {
 
                 Message::Blocks(blocks) => {
                     //debug!("Blocks: {:?}", blocks);
-                    info!("WORKER: START RECEIVING BLOCKS");
+                    //info!("WORKER: START RECEIVING BLOCKS");
                     let mut blocks = blocks.clone();
                     let mut blockchain = self.blockchain.lock().unwrap();
                     let mut orphanbuffer = self.orphanbuffer.lock().unwrap();
@@ -307,6 +307,7 @@ impl Context {
 
                 Message::NewTransactionHashes(hashes) => {
                     //println!("newTransactionhashes: {:?}",hashes);
+                    info!("WORKER: NEW TRANSACTION HASHES RECEIVED");
                     let mut mempool = self.mempool.lock().unwrap();
                     let mut notContainedHashes = Vec::<H256>::new();
                     if hashes.len() != 0 {
@@ -323,6 +324,7 @@ impl Context {
                 }
 
                 Message::GetTransactions(hashes) => {
+                    info!("WORKER: NEW TRANSACTIONS REQUIRED");
                     //println!("getTransactionhashes: {:?}",hashes);
                     let mut mempool = self.mempool.lock().unwrap();
                     let mut notContainedTransactions = Vec::<SignedTransaction>::new();
@@ -342,6 +344,7 @@ impl Context {
                 }
 
                 Message::Transactions(Transactions) => {
+                    info!("WORKER: ADDING NEW TRANSACTIONS");
                     //println!("Transactions: {:?}",Transactions);
                     let mut mempool = self.mempool.lock().unwrap();
                     let mut state = self.state.lock().unwrap();
@@ -354,6 +357,7 @@ impl Context {
                             //info!("checking");
                             if Transaction.verifySignedTransaction() && state.ifNotDoubleSpent(Transaction) {
                                 //info!("added");
+                                info!("WORKER: NEW TRANSACTIONS ADDED!");
                                 mempool.insert(Transaction);
                                 addedTransactionHashes.push(Transaction.hash());
                             }

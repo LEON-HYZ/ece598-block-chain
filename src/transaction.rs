@@ -346,7 +346,7 @@ impl Context {
                     }
                     std::mem::drop(mempool);
                 }
-                
+
             }
 
 
@@ -356,7 +356,7 @@ impl Context {
                     thread::sleep(interval);
                 }
             }
-            //let interval = time::Duration::from_micros(10000 as u64);
+            //let interval = time::Duration::from_micros(100000 as u64);
             //thread::sleep(interval);
         }
     }
@@ -416,6 +416,7 @@ impl State {
             }
             else{
                 isnotdoublespent = isnotdoublespent && false;
+                break;
             }
         }
         return isnotdoublespent;

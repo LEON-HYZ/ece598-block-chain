@@ -171,8 +171,8 @@ impl Context {
 
                 // difficulty
                 let mut bytes32 = [255u8;32];
-                //bytes32[0]=0;
-                //bytes32[1]=255;
+                bytes32[0]=10;
+                bytes32[1]=20;
                 let difficulty : H256 = bytes32.into();
 
                 // read transactions from mempool
