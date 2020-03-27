@@ -114,6 +114,12 @@ fn main() {
     // let num_delay = Arc::new(Mutex::new(new_num_delay));
 
     let data = fs::read("ICO.txt").expect("Unable to read file");
+    if data.len() == 40 {
+        info!("Two processes are connected");
+    }
+    else if data.len() == 60 {
+        info!("Three processes are connected");
+    }
     //println!("{:?}", data);
     
 

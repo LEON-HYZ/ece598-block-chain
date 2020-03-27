@@ -138,99 +138,110 @@ impl Context {
             if let OperatingState::ShutDown = self.operating_state {
                 return;
             }
-
             // TODO: actual mining
-            //let mut blockchain = self.blockchain.lock().unwrap();
-
-            let nonce:u32 = thread_rng().gen();
-            let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
-
-            // difficulty
-            let mut bytes32 = [255u8;32];
-            bytes32[0]=0;
-            bytes32[1]=5;
-            let difficulty : H256 = bytes32.into();
-
-            // read transactions from mempool
-            let mut signedTransaction = Vec::<SignedTransaction>::new();
             let mut mempool = self.mempool.lock().unwrap();
-            let block_size_limit = 5;
-            let mut trans_count = 0;
             let mut key_iter = mempool.Transactions.keys();
-            let mut key_need_remove = Vec::<H256>::new();
+            if key_iter.len() > 0 {
+                info!("Begin Mining1");
+                let nonce:u32 = thread_rng().gen();
+                let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
 
-            for i in 0..block_size_limit {
-                match key_iter.next() {
-                    Some(hash) => {
-                        //println!("{:?}",hash);
-                        signedTransaction.push(mempool.Transactions.get(hash).unwrap().clone());
-                        key_need_remove.push(*hash);
-                        trans_count = trans_count + 1;
-                    }
-                    None => {
-                        break;
-                    }
-                }
+                // difficulty
+                let mut bytes32 = [255u8;32];
+                //bytes32[0]=0;
+                //bytes32[1]=255;
+                let difficulty : H256 = bytes32.into();
 
+                // read transactions from mempool
+                let mut signedTransaction = Vec::<SignedTransaction>::new();
 
-            }
+                let mut state = self.state.lock().unwrap();
+                let block_size_limit = 5;
 
-            if signedTransaction.capacity() > 0 {
+                let mut key_need_remove = Vec::<H256>::new();
+                println!("Miner: mempool: {:?}", key_iter);
+                //println!("preTx: {:?}, PreIndex: {:?}",mempool.getPreTxHash(key_iter[0].0), mempool.getPreIndex(key_iter[0].0));
 
-                let mut MerkleTree = MerkleTree::new(&signedTransaction);
-
-                let newContent = Content{
-                    content: signedTransaction,
-                };
-
-                let newHeader = Header{
-                    parent: self.blockchain.lock().unwrap().tip(),
-                    nonce:  nonce,
-                    difficulty: difficulty,
-                    timestamp:  timestamp,
-                    merkleRoot: MerkleTree.root(),
-                };
-
-                let newBlock = Block{
-                    Header: newHeader,
-                    Content: newContent,
-                };
-                //println!("{:?}", MerkleTree.root() );
-                //println!("{:?}",newBlock.hash() );
-
-
-
-                if newBlock.hash() <= difficulty {
-                    //println!("miner tip: {:?}", self.blockchain.lock().unwrap().tip.0);
-                    self.blockchain.lock().unwrap().insert(&newBlock);
-                    miner_counter += 1;
-                    println!("Current miner counter: {:?}", miner_counter);
-                    println!("Current height of blockchain: {:?}", self.blockchain.lock().unwrap().tip.1);
-
-                    //Mempool Update
-                    for hash in key_need_remove.iter() {
-                        mempool.Transactions.remove(hash);
-                    }
-
-                    //TODO:State Update
-                    let mut state = self.state.lock().unwrap();
-                    for signedtransaction in newBlock.Content.content {
-                        let mut h = signedtransaction.hash();
-                        for input in signedtransaction.transaction.Input {
-                            if state.Outputs.contains_key(&(input.prevTransaction, input.preOutputIndex)) {
-                                state.Outputs.remove(&(input.prevTransaction, input.preOutputIndex));
+                for i in 0..block_size_limit {
+                    match key_iter.next() {
+                        Some(hash) => {
+                            //println!("Miner: tx: {:?}",hash);
+                            //println!("Miner: preTx: {:?}, PreIndex: {:?}",mempool.getPreTxHash(hash), mempool.getPreIndex(hash));
+                            //double spent check and verify signature
+                            if (state.ifNotDoubleSpent(&(mempool.getPreTxHash(hash), mempool.getPreIndex(hash))))
+                                && mempool.Transactions.get(hash).unwrap().verifySignedTransaction() {
+                                //info!("Miner: Adding to block HERE");
+                                signedTransaction.push(mempool.Transactions.get(hash).unwrap().clone());
+                                key_need_remove.push(*hash);
                             }
                         }
-                        for output in signedtransaction.transaction.Output {
-                            state.Outputs.insert((h, output.index), (output.value, output.recpAddress));
+                        None => {
+                            break;
                         }
                     }
-                    //println!("Current tip: {:?}", blockchain.tip() );
+                }
+                std::mem::drop(mempool);
+                std::mem::drop(state);
 
-                    self.server.broadcast(Message::NewBlockHashes(self.blockchain.lock().unwrap().all_blocks_in_longest_chain()));
+                if signedTransaction.capacity() > 0 {
+                    info!("Miner: Adding ...");
+                    let mut mempool = self.mempool.lock().unwrap();
+                    let mut state = self.state.lock().unwrap();
 
+                    let mut MerkleTree = MerkleTree::new(&signedTransaction);
+
+                    let newContent = Content{
+                        content: signedTransaction,
+                    };
+
+                    let newHeader = Header{
+                        parent: self.blockchain.lock().unwrap().tip(),
+                        nonce:  nonce,
+                        difficulty: difficulty,
+                        timestamp:  timestamp,
+                        merkleRoot: MerkleTree.root(),
+                    };
+
+                    let newBlock = Block{
+                        Header: newHeader,
+                        Content: newContent,
+                    };
+                    //println!("1: {:?}", newBlock.hash() );
+                    //println!("2: {:?}", difficulty );
+
+
+
+                    if newBlock.hash() <= difficulty {
+                        info!("Miner:Added!");
+                        //println!("miner tip: {:?}", self.blockchain.lock().unwrap().tip.0);
+                        self.blockchain.lock().unwrap().insert(&newBlock);
+                        miner_counter += 1;
+                        println!("Miner: Current miner counter: {:?}", miner_counter);
+                        println!("Miner: Current height of blockchain: {:?}", self.blockchain.lock().unwrap().tip.1);
+
+                        println!("Current TX : {:?}", newBlock.Content.content );
+                        //Mempool Update
+                        mempool.updateMempool(&newBlock.Content.content);
+                        println!("Miner: updated mempool: {:?}", mempool.Transactions.keys());
+
+                        //State Update
+                        state.updateState(&newBlock.Content.content);
+                        //println!("Current tip: {:?}", blockchain.tip() );
+                        println!("Miner: updated state: {:?}", state.Outputs.keys());
+
+
+                        self.server.broadcast(Message::NewBlockHashes(self.blockchain.lock().unwrap().all_blocks_in_longest_chain()));
+
+                    }
+                    std::mem::drop(mempool);
+                    std::mem::drop(state);
                 }
             }
+
+
+
+
+
 
 
             if let OperatingState::Run(i) = self.operating_state {
@@ -239,6 +250,9 @@ impl Context {
                     thread::sleep(interval);
                 }
             }
+
+            let interval = time::Duration::from_micros(1000 as u64);
+            thread::sleep(interval);
         }
     }
 }

@@ -15,6 +15,8 @@ use ring::signature::{Ed25519KeyPair, Signature, KeyPair, VerificationAlgorithm,
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use log::info;
+
 
 
 use std::thread;
@@ -184,22 +186,18 @@ impl Context {
                             if block.Header.difficulty == difficulty{
                                 if !blockchain.Blocks.get(&block.getparent()).is_none(){
                                     //println!("block parent: {:?}", block.getparent());
-                                    //println!("tip H256: {:?}", blockchain.tip.0);
+                                    println!("worker: tip H256: {:?}", blockchain.tip.0);
                                     blockchain.insert(&block);
+                                    info!("Blocks mined by one can be received by the other.");
                                     //TODO: Update State
                                     let mut state = self.state.lock().unwrap();
                                     let mut content = block.Content.content.clone();
-                                    for signedtransaction in content {
-                                        let mut h = signedtransaction.hash();
-                                        for input in signedtransaction.transaction.Input {
-                                            if state.Outputs.contains_key(&(input.prevTransaction, input.preOutputIndex)) {
-                                                state.Outputs.remove(&(input.prevTransaction, input.preOutputIndex));
-                                            }
-                                        }
-                                        for output in signedtransaction.transaction.Output {
-                                            state.Outputs.insert((h, output.index), (output.value, output.recpAddress));
-                                        }
-                                    }
+                                    state.updateState(&content);
+                                    std::mem::drop(state);
+                                    //TODO: Update Mempool
+                                    let mut mempool = self.mempool.lock().unwrap();
+                                    mempool.updateMempool(&content);
+                                    std::mem::drop(mempool);
 
                                     let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
                                     let mut delay_u128 = now - block.gettimestamp();
@@ -250,6 +248,7 @@ impl Context {
 
 
                 Message::NewTransactionHashes(hashes) => {
+                    //println!("newTransactionhashes: {:?}",hashes);
                     let mut mempool = self.mempool.lock().unwrap();
                     let mut notContainedHashes = Vec::<H256>::new();
                     if hashes.len() != 0 {
@@ -265,6 +264,7 @@ impl Context {
                 }
 
                 Message::GetTransactions(hashes) => {
+                    //println!("getTransactionhashes: {:?}",hashes);
                     let mut mempool = self.mempool.lock().unwrap();
                     let mut notContainedTransactions = Vec::<SignedTransaction>::new();
                     let mut hashes = hashes.clone();
@@ -282,6 +282,7 @@ impl Context {
                 }
 
                 Message::Transactions(Transactions) => {
+                    //println!("Transactions: {:?}",Transactions);
                     let mut mempool = self.mempool.lock().unwrap();
                     let mut state = self.state.lock().unwrap();
                     let mut Transactions = Transactions.clone();
@@ -290,10 +291,9 @@ impl Context {
                     for Transaction in Transactions.iter(){
                         if !mempool.Transactions.contains_key(&Transaction.hash()) {
                             //Transaction signature check
-                            let public_key = &Transaction.publicKey[..];
-                            let signature = &Transaction.signature[..];
-                            let public_key_ = ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public_key.as_ref());
-                            if public_key_.verify(&bincode::serialize(&Transaction).unwrap()[..],signature.as_ref()) == Ok(()){
+                            //info!("checking");
+                            if Transaction.verifySignedTransaction() {
+                                //info!("added");
                                 mempool.insert(Transaction);
                                 addedTransactionHashes.push(Transaction.hash());
                             }
@@ -302,6 +302,7 @@ impl Context {
                     if addedTransactionHashes.capacity() > 0 {
                         self.server.broadcast(Message::NewTransactionHashes(addedTransactionHashes));
                     }
+                    //println!("updated mempool: {:?}",mempool.Transactions);
 
                 }
 

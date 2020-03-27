@@ -70,6 +70,15 @@ impl SignedTransaction {
         let mut publicKey = public_key.as_ref().to_vec();
         return SignedTransaction{transaction: transaction, signature:signature, publicKey:publicKey}
     }
+
+    pub fn verifySignedTransaction(&self) -> bool {
+        //info!("checking signature...");
+        let public_key = self.publicKey.clone();
+        let signature= self.signature.clone();
+        //println!("pubkey: {:?}, sig: {:?} " ,public_key, signature);
+        let public_key_ = ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public_key[..].as_ref());
+        return public_key_.verify(&bincode::serialize(&self.transaction).unwrap()[..],signature[..].as_ref()) == Ok(());
+    }
 }
 
 /// Create digital signature of a transaction
@@ -82,7 +91,6 @@ pub fn sign(t: &Transaction, key: &Ed25519KeyPair) -> Signature {
 
 /// Verify digital signature of a transaction, using public key instead of secret key
 pub fn verify(t: &Transaction, public_key: &<Ed25519KeyPair as KeyPair>::PublicKey, signature: &Signature) -> bool {
-    //unimplemented!()
     let t_serialized = bincode::serialize(&t).unwrap();
     let public_key_ = ring::signature::UnparsedPublicKey::new(&ring::signature::ED25519, public_key.as_ref());
     if public_key_.verify(&t_serialized,signature.as_ref()) == Ok(())  {   return true;    }
@@ -106,6 +114,22 @@ impl Mempool {
     pub fn insert(&mut self, tx: &SignedTransaction) {
         let last_tx = tx.clone();
         self.Transactions.insert(tx.hash(), last_tx);
+    }
+    pub fn getPreIndex(&self, tx_hash: &H256) -> u32{
+        return self.Transactions.get(tx_hash).unwrap().transaction.Input[0].preOutputIndex;
+    }
+
+    pub fn getPreTxHash(&self, tx_hash: &H256) -> H256 {
+        return self.Transactions.get(tx_hash).unwrap().transaction.Input[0].prevTransaction;
+    }
+
+    pub fn updateMempool(&mut self, SignedTransaction: &Vec<SignedTransaction>){
+        for signedTransaction in SignedTransaction{
+            if self.Transactions.contains_key(&signedTransaction.hash()){
+                self.Transactions.remove(&signedTransaction.hash());
+            }
+        }
+
     }
 }
 enum ControlSignal {
@@ -207,6 +231,7 @@ impl Context {
         let mut all_address = Vec::<H160>::new();
         // main mining loop
         loop {
+
             // check and react to control signals
             match self.operating_state {
                 OperatingState::Paused => {
@@ -229,13 +254,13 @@ impl Context {
                 return;
             }
 
+
             let mut state = self.state.lock().unwrap();
-
-
             //TODO: Read ICO just once and Update State
             if !readICO {
                 // Initialize State
                 //println!("local: {:?}", self.local_address);
+                info!("The ICOis working on local process");
                 let data = fs::read("ICO.txt").expect("Unable to read file");
                 let data_len: usize = (data.len()/20 )as usize;
                 println!("data_length: {:?}", data.len());
@@ -256,64 +281,72 @@ impl Context {
                 }
 
                 readICO = true;
+                println!("Lcoal Addr: {:?}, Local States:{:?}",self.local_address, state.Outputs);
             }
-
-            // println!("Addr: {:?}, keys: {:?}",self.local_address, state.Outputs);
 
             //check if valid in state
+            if state.Outputs.keys().len() > 0 {
 
-            for State in state.Outputs.keys() {
-                //state check to avoid double spent
-                //State: hash, output index <-> value, recipient address
-                if state.Outputs.get(State).unwrap().1 == self.local_address {
+                for State in state.Outputs.keys() {
+                    //state check to avoid double spent
+                    //State: hash, output index <-> value, recipient address
+                    //info!("I am here!");
+                    if state.Outputs.get(State).unwrap().1 == self.local_address {
+                        //info!("I am here!2");
+                        let pre_hash = State.0;
+                        let mut out_value = Vec::<f32>::new();
+                        let mut recp_addr = Vec::<H160>::new();
+                        let mut pre_index = [State.1].to_vec();
 
-                    let pre_hash = State.0;
-                    let mut out_value = Vec::<f32>::new();
-                    let mut recp_addr = Vec::<H160>::new();
-                    let mut pre_index = [State.1].to_vec();
+                        //recipient adresses
+                        let mut rng = rand::thread_rng();
+                        let mut num = rng.gen_range(0, other_address.len());
+                        let dest_addr:H160 = other_address[num];
+                        recp_addr.push(dest_addr);
+                        recp_addr.push(self.local_address);
 
-                    //TODO:let dest_addr = random addr from 2 processes
-                    let mut rng = rand::thread_rng();
-                    let mut num = rng.gen_range(0, other_address.len());
-                    let dest_addr:H160 = other_address[num];
-                    recp_addr.push(dest_addr);
-                    recp_addr.push(self.local_address);
+                        //recipient values
+                        let dest_value = 10 as f32;
+                        let rest_value = (state.Outputs.get(State).unwrap().0) - dest_value;
+                        if rest_value > 0.0 {
+                            out_value.push(dest_value);
+                            out_value.push(rest_value);
 
-                    let dest_value = (0.5 * state.Outputs.get(State).unwrap().0) as f32;
-                    let rest_value = (state.Outputs.get(State).unwrap().0) - dest_value;
-                    out_value.push(dest_value);
-                    out_value.push(rest_value);
+                            //generating signed transactions
+                            let mut transaction = generate_transaction(&pre_hash,&pre_index,&out_value,&recp_addr);
+                            let signature = sign(&transaction,&self.key_pair);
+                            let SignedTransaction = SignedTransaction::new(&transaction, &signature,&self.key_pair.public_key());
 
-                    let mut transaction = generate_transaction(&pre_hash,&pre_index,&out_value,&recp_addr);
-                    //let mut test = generate_random_signed_transaction_();
-                    let signature = sign(&transaction,&self.key_pair);
-                    let SignedTransaction = SignedTransaction::new(&transaction, &signature,&self.key_pair.public_key());
+                            //need to check signature before inserting to mempool
 
-                    //need to check signature before inserting to mempool
+                            let mut mempool = self.mempool.lock().unwrap();
+                            if (!mempool.Transactions.contains_key(&SignedTransaction.hash())) && SignedTransaction.verifySignedTransaction(){
+                                mempool.insert(&SignedTransaction);
+                                tx_counter = tx_counter + 1;
+                                //println!("{:?}",tx_counter);
+                                //info!("There is a transaction generator that can put transactions into these clients.");
+                                println!("TX: mempool: {:?}",mempool.Transactions.keys());
+                                let mut txHash = Vec::<H256>::new();
+                                txHash.push(SignedTransaction.hash().clone());
+                                self.server.broadcast(Message::NewTransactionHashes(txHash));
 
-                    tx_counter = tx_counter + 1;
-                    //println!("{:?}",tx_counter);
+                            }
+                            std::mem::drop(mempool);
+                        }
 
-                    self.mempool.lock().unwrap().insert(&SignedTransaction);
 
-                    let mut txHashes = Vec::<H256>::new();
-                    for hash in self.mempool.lock().unwrap().Transactions.keys(){
-                        txHashes.push(hash.clone());
                     }
-                    if txHashes.capacity() > 0{
-                        self.server.broadcast(Message::NewTransactionHashes(txHashes));
-                    }
-                    break;
                 }
             }
-
-
+            std::mem::drop(state);
             if let OperatingState::Run(i) = self.operating_state {
                 if i != 0 {
                     let interval = time::Duration::from_micros(i as u64);
                     thread::sleep(interval);
                 }
             }
+            let interval = time::Duration::from_micros(10000 as u64);
+            thread::sleep(interval);
         }
     }
 }
@@ -361,10 +394,27 @@ impl State {
         return State{Outputs:hashmap,}
     }
 
-    // pub fn insert(&mut self, tx: &SignedTransaction) {
-    //     let last_tx = tx.clone();
-    //     self.Transactions.insert(tx.hash(), last_tx);
-    // }
+    // double spent check
+    pub fn ifNotDoubleSpent(&self, key: &(H256, u32)) -> bool {
+        //info!("checking double spend");
+        return self.Outputs.contains_key(key);
+    }
+
+    pub fn updateState(&mut self, SignedTransactions: &Vec<SignedTransaction>) {
+        for signedTransaction in SignedTransactions {
+            let mut hash = signedTransaction.hash();
+            for input in signedTransaction.transaction.Input.clone() {
+                if self.Outputs.contains_key(&(input.prevTransaction, input.preOutputIndex)) {
+                    self.Outputs.remove(&(input.prevTransaction, input.preOutputIndex));
+                }
+            }
+            for output in signedTransaction.transaction.Output.clone() {
+                self.Outputs.insert((hash, output.index), (output.value, output.recpAddress));
+            }
+        }
+
+    }
+
 }
 //state Ends
 
