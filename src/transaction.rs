@@ -387,7 +387,7 @@ impl Context {
                         let mut txHash = Vec::<H256>::new();
                         for key in mempool.Transactions.keys(){
                             txHash.push(key.clone());
-                            //println!("TXG: MEMPOOL KEYS:{:?}, INPUT: {:?}, OUTPUT: {:?}", key, mempool.Transactions.get(key).unwrap().transaction.Input, mempool.Transactions.get(key).unwrap().transaction.Output);
+                            println!("TXG: MEMPOOL KEYS:{:?}, INPUT: {:?}, OUTPUT: {:?}", key, mempool.Transactions.get(key).unwrap().transaction.Input, mempool.Transactions.get(key).unwrap().transaction.Output);
                         }
                         //txHash.push(SignedTransaction.hash().clone());
                         self.server.broadcast(Message::NewTransactionHashes(txHash));
