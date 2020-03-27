@@ -221,11 +221,12 @@ impl Context {
                                     if check{
                                         let tip_hash = blockchain.insert(&block);
 
-                                        //info!("WORKER: BLOCKS RECEIVED");
+                                        info!("WORKER: BLOCKS RECEIVED FROM THE OTHER SENDER");
                                         println!("WORKER: CURRENT BLOCKCHAIN HEIGHT: {:?}", blockchain.tip.1);
                                         // info!("Worker: Blocks mined by one can be received by the other.");
                                         let mut state = self.state.lock().unwrap();
                                         let mut mempool = self.mempool.lock().unwrap();
+                                        // CODE REVERSE WHEN A FORK APPEARS
                                         if stateSet.Set.contains_key(&tip_hash) {
                                             // let new_state = stateSet.Set.get(&tip_hash).unwrap().Outputs;
                                             state.Outputs.clear();
@@ -233,13 +234,14 @@ impl Context {
                                                 state.Outputs.insert(key, value);
                                             }
                                         }
-                                        // TODO: Update State
+                                        // Update State
                                         state.updateState(&contents);
+                                        // CODE STATE SET UPDATE
                                         stateSet.Set.insert(block.hash(), state.clone());
-                                        //TODO: Update Mempool
+                                        // Update Mempool
                                         mempool.updateMempool(&contents);
                                         for key in state.Outputs.keys() {
-                                            println!("WORKER: UPDATED STATE ADDR: {:?}, VALUE {:?}", state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
+                                            println!("WORKER: RECP: {:?}, VALUE {:?} BTC", state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
                                         }
                                         //let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
                                         //let mut delay_u128 = now - block.gettimestamp();
@@ -298,9 +300,9 @@ impl Context {
                                     let mut mempool = self.mempool.lock().unwrap();
                                     //info!("WORKER: BLOCKS RECEIVED");
                                     // info!("Worker: Blocks mined by one can be received by the other.");
-                                    // TODO: Update State
+                                    // Update State
                                     state.updateState(&contents);
-                                    //TODO: Update Mempool
+                                    //Update Mempool
                                     mempool.updateMempool(&contents);
 
                                     info!("WORKER: ORPHAN BLOCKS RECEIVED");

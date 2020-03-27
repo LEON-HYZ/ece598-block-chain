@@ -117,10 +117,10 @@ fn main() {
 
     let data = fs::read("ICO.txt").expect("Unable to read file");
     if data.len() == 40 {
-        info!("Two processes are connected");
+        info!("TWO PROCESSES ARE CONNECTED");
     }
     else if data.len() == 60 {
-        info!("Three processes are connected");
+        info!("THREE PROCESSES ARE CONNECTED");
     }
     //println!("{:?}", data);
 

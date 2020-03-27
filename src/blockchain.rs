@@ -25,7 +25,7 @@ impl Blockchain {
         return Blockchain {Blocks: Blocks,genesis_hash:genesis_hash, tip: tip,};
     }
 
-    /// Insert a block into blockchain
+    /// Insert a block into blockchain and update block hash CODE
     pub fn insert(&mut self, block: &Block) -> H256 {
         let last_block = block.clone();
         let h = self.Blocks.get(&(last_block.getparent())).as_ref().unwrap().1 + 1;

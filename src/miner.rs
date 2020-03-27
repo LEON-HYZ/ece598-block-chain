@@ -10,7 +10,7 @@ use crate::transaction::{Transaction, generate_random_transaction_, Mempool, Sta
 use rand::{thread_rng, Rng};
 use ring::{digest};
 
-use log::info;
+use log::{info,debug};
 
 use crossbeam::channel::{unbounded, Receiver, Sender, TryRecvError};
 use std::{time, fs};
@@ -148,7 +148,7 @@ impl Context {
                 // Initialize State
                 //println!("local: {:?}", self.local_address);
                 let mut state = self.state.lock().unwrap();
-                info!("The ICO is working on local process");
+                println!("ICO: THE ICO IS WORKING ON PROCESSES: {:?}",self.local_address);
                 let data = fs::read("ICO.txt").expect("Unable to read file");
                 let data_len: usize = (data.len() / 20) as usize;
                 println!("data_length: {:?}", data.len());
@@ -163,6 +163,7 @@ impl Context {
                 }
                 readICO = true;
                 println!("LOCAL STATES: {:?}", state.Outputs);
+                println!("PROCESS {:?} CAN START TO MINE BLOCKS.",self.local_address);
                 std::mem::drop(state);
             }
             // TODO: actual mining
@@ -282,7 +283,7 @@ impl Context {
                             stateSet.Set.insert(newBlock.hash(), state.clone());
                             mempool.updateMempool(&contents);
                             for key in state.Outputs.keys() {
-                                println!("MINER: UPDATED STATE ADDR: {:?}, VALUE {:?}", state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
+                                println!("MINER: RECP: {:?}, VALUE {:?}", state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
                             }
                             self.server.broadcast(Message::NewBlockHashes(self.blockchain.lock().unwrap().all_blocks_in_longest_chain()));
                             //info!("MINER: BLOCK MESSAGES SENT");

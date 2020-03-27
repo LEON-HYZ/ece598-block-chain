@@ -70,7 +70,7 @@ impl SignedTransaction {
         let mut publicKey = public_key.as_ref().to_vec();
         return SignedTransaction{transaction: transaction, signature:signature, publicKey:publicKey}
     }
-
+    // CODE SIGNATURE CHECK
     pub fn verifySignedTransaction(&self) -> bool {
         //info!("checking signature...");
         let public_key = self.publicKey.clone();
@@ -270,7 +270,7 @@ impl Context {
                 // Initialize State
                 //println!("local: {:?}", self.local_address);
                 //let mut state = self.state.lock().unwrap();
-                info!("The ICO is working on local process");
+                //info!("The ICO is working on local process");
                 let data = fs::read("ICO.txt").expect("Unable to read file");
                 let data_len: usize = (data.len() / 20) as usize;
                 println!("data_length: {:?}", data.len());
@@ -291,7 +291,7 @@ impl Context {
                 }
 
                 readADD = true;
-                println!("LOCAL ADDR: {:?},", self.local_address);
+                println!("TXG: THERE IS A TRANSACTION GENERATOR ON PROCESS: {:?},", self.local_address);
                 //println!("LOCAL ADDR: {:?}, LOCAL STATES:{:?}", self.local_address, state.Outputs);
                 //std::mem::drop(state);
             }
@@ -387,7 +387,7 @@ impl Context {
                         let mut txHash = Vec::<H256>::new();
                         for key in mempool.Transactions.keys(){
                             txHash.push(key.clone());
-                            println!("TXG: MEMPOOL KEYS:{:?}, INPUT: {:?}, OUTPUT: {:?}", key, mempool.Transactions.get(key).unwrap().transaction.Input, mempool.Transactions.get(key).unwrap().transaction.Output);
+                            println!("TXG: MEMPOOL KEYS:{:?}", key);//, mempool.Transactions.get(key).unwrap().transaction.Input, mempool.Transactions.get(key).unwrap().transaction.Output);
                         }
                         //txHash.push(SignedTransaction.hash().clone());
                         self.server.broadcast(Message::NewTransactionHashes(txHash));
@@ -456,7 +456,7 @@ impl State {
         return State{Outputs:hashmap,}
     }
 
-    // double spent check
+    // CODE DOUBLE SPEND CHECK
     pub fn ifNotDoubleSpent(&self, SignedTransaction:&SignedTransaction) -> bool {
         //info!("checking double spend");
         let mut isnotdoublespent = true;
