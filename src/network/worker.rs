@@ -133,6 +133,7 @@ impl Context {
                 Message::NewBlockHashes(hashes) => {
                     //debug!("NewBlockHashes: {:?}", hashes);
                     //self.server.broadcast(Message::NewBlockHashes(hashes.clone()));
+                    info!("WORKER: RECEIVED BLOCK MESSAGES");
                     let mut notContainedHashes = Vec::<H256>::new();
                     let mut blockchain = self.blockchain.lock().unwrap();
                     let mut orphanbuffer = self.orphanbuffer.lock().unwrap();
@@ -152,6 +153,7 @@ impl Context {
 
                 Message::GetBlocks(hashes) => {
                     //debug!("GetBlocks: {:?}", hashes);
+                    info!("WORKER: ASKED FOR BLOCKS");
                     let mut notContainedBlocks = Vec::<Block>::new();
                     let mut hashes = hashes.clone();
                     let mut blockchain = self.blockchain.lock().unwrap();
@@ -171,6 +173,7 @@ impl Context {
 
                 Message::Blocks(blocks) => {
                     //debug!("Blocks: {:?}", blocks);
+                    info!("WORKER: START RECEIVING BLOCKS");
                     let mut blocks = blocks.clone();
                     let mut blockchain = self.blockchain.lock().unwrap();
                     let mut orphanbuffer = self.orphanbuffer.lock().unwrap();
@@ -179,16 +182,20 @@ impl Context {
                     let mut newlyProcessedBlockHashes = Vec::<H256>::new();
 
                     for block in blocks.iter() {
-
+                        info!("WORKER: RECEIVING BLOCKS...");
                         //PoW check
                         let difficulty = blockchain.Blocks.get(&blockchain.tip.0).unwrap().0.getdifficulty();
                         if block.hash() <=  difficulty{
+                            info!("WORKER: DIFFICULTY CHECK1 SUCCESS");
                             if block.Header.difficulty == difficulty{
+                                info!("WORKER: DIFFICULTY CHECK2 SUCCESS");
                                 if !blockchain.Blocks.get(&block.getparent()).is_none(){
+                                    info!("WORKER: PARENT CHECK SUCCESS");
                                     //println!("block parent: {:?}", block.getparent());
-                                    println!("worker: tip H256: {:?}", blockchain.tip.0);
+                                    println!("WORKER: PRESENT TIP {:?}", blockchain.tip.0);
                                     blockchain.insert(&block);
-                                    info!("Blocks mined by one can be received by the other.");
+                                    info!("WORKER: BLOCKS RECEIVED");
+                                    //info!("Worker: Blocks mined by one can be received by the other.");
                                     //TODO: Update State
                                     let mut state = self.state.lock().unwrap();
                                     let mut content = block.Content.content.clone();
@@ -204,7 +211,7 @@ impl Context {
                                     let delay = delay_u128 as f32;
                                     // sum_delay += delay;
                                     // num_delay += 1;
-                                    println!("delay: {:?}", delay);
+                                    println!("WORKER DELAY: {:?}", delay);
                                     // println!("sum_delay: {:?}", sum_delay);
                                     // println!("num_delay: {:?}", num_delay);
                                     newlyProcessedBlockHashes.push(block.hash());
@@ -231,10 +238,11 @@ impl Context {
                             let orphans = orphanbuffer.getOrphanBlocks(&newlyProcessedBlockHashes[idx]);
                             for orphan in orphans{
                                 blockchain.insert(&orphan);
+                                info!("WORKER: ORPHAN BLOCKS RECEIVED");
                                 let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
                                 let mut delay_u128 = now - orphan.gettimestamp();
                                 let delay = delay_u128 as f32;
-                                println!("delay: {:?}", delay);
+                                println!("WORKER DELAY: {:?}", delay);
                                 newlyProcessedBlockHashes.push(orphan.hash());
                             }
                             orphanbuffer.remove(&newlyProcessedBlockHashes[idx]);

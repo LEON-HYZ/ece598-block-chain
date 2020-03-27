@@ -142,7 +142,7 @@ impl Context {
             let mut mempool = self.mempool.lock().unwrap();
             let mut key_iter = mempool.Transactions.keys();
             if key_iter.len() > 0 {
-                info!("Begin Mining1");
+                info!("MINER: STARTING...");
                 let nonce:u32 = thread_rng().gen();
                 let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
 
@@ -157,22 +157,21 @@ impl Context {
 
                 let mut state = self.state.lock().unwrap();
                 let block_size_limit = 5;
+                let mut tx_counter = 0;
 
-                let mut key_need_remove = Vec::<H256>::new();
-                println!("Miner: mempool: {:?}", key_iter);
-                //println!("preTx: {:?}, PreIndex: {:?}",mempool.getPreTxHash(key_iter[0].0), mempool.getPreIndex(key_iter[0].0));
+                println!("MINER: MEMPOOL {:?}", key_iter);
 
-                for i in 0..block_size_limit {
+               while tx_counter < block_size_limit {
                     match key_iter.next() {
                         Some(hash) => {
                             //println!("Miner: tx: {:?}",hash);
                             //println!("Miner: preTx: {:?}, PreIndex: {:?}",mempool.getPreTxHash(hash), mempool.getPreIndex(hash));
                             //double spent check and verify signature
-                            if (state.ifNotDoubleSpent(&(mempool.getPreTxHash(hash), mempool.getPreIndex(hash))))
+                            if state.ifNotDoubleSpent(mempool.Transactions.get(hash).unwrap())
                                 && mempool.Transactions.get(hash).unwrap().verifySignedTransaction() {
                                 //info!("Miner: Adding to block HERE");
                                 signedTransaction.push(mempool.Transactions.get(hash).unwrap().clone());
-                                key_need_remove.push(*hash);
+                                tx_counter = tx_counter + 1;
                             }
                         }
                         None => {
@@ -184,12 +183,12 @@ impl Context {
                 std::mem::drop(state);
 
                 if signedTransaction.capacity() > 0 {
-                    info!("Miner: Adding ...");
+                    info!("MINER: ADDING...");
                     let mut mempool = self.mempool.lock().unwrap();
                     let mut state = self.state.lock().unwrap();
-
+                    //info!("MINER: MERKLETREE CHECKING...");
                     let mut MerkleTree = MerkleTree::new(&signedTransaction);
-
+                    //info!("MINER: MERKLETREE CHECKED");
                     let newContent = Content{
                         content: signedTransaction,
                     };
@@ -208,29 +207,31 @@ impl Context {
                     };
                     //println!("1: {:?}", newBlock.hash() );
                     //println!("2: {:?}", difficulty );
-
+                    info!("MINER: BLOCK CREATED");
 
 
                     if newBlock.hash() <= difficulty {
-                        info!("Miner:Added!");
+                        info!("MINER: ADDED");
                         //println!("miner tip: {:?}", self.blockchain.lock().unwrap().tip.0);
                         self.blockchain.lock().unwrap().insert(&newBlock);
                         miner_counter += 1;
-                        println!("Miner: Current miner counter: {:?}", miner_counter);
-                        println!("Miner: Current height of blockchain: {:?}", self.blockchain.lock().unwrap().tip.1);
+                        println!("MINER: CURRENT MINER COUNT: {:?}", miner_counter);
+                        println!("MINER: CURRENT BLOCKCHAIN HEIGHT: {:?}", self.blockchain.lock().unwrap().tip.1);
 
-                        println!("Current TX : {:?}", newBlock.Content.content );
+                        //println!("Current TX : {:?}", newBlock.Content.content );
                         //Mempool Update
                         mempool.updateMempool(&newBlock.Content.content);
-                        println!("Miner: updated mempool: {:?}", mempool.Transactions.keys());
+                        println!("MINER: UPDATED MEMPOOL: {:?}", mempool.Transactions.keys());
 
                         //State Update
                         state.updateState(&newBlock.Content.content);
                         //println!("Current tip: {:?}", blockchain.tip() );
-                        println!("Miner: updated state: {:?}", state.Outputs.keys());
-
+                        for key in state.Outputs.keys(){
+                            println!("MINER: UPDATED STATE ADDR: {:?}, VALUE {:?}", state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
+                        }
 
                         self.server.broadcast(Message::NewBlockHashes(self.blockchain.lock().unwrap().all_blocks_in_longest_chain()));
+                        info!("MINER: BLOCK MESSAGES SENT");
 
                     }
                     std::mem::drop(mempool);
