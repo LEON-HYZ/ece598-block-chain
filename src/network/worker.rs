@@ -19,7 +19,7 @@ use log::info;
 
 
 
-use std::thread;
+use std::{thread, time};
 use crate::transaction;
 use std::ascii::escape_default;
 
@@ -134,7 +134,7 @@ impl Context {
                 Message::NewBlockHashes(hashes) => {
                     //debug!("NewBlockHashes: {:?}", hashes);
                     //self.server.broadcast(Message::NewBlockHashes(hashes.clone()));
-                    info!("WORKER: RECEIVED BLOCK MESSAGES");
+                    //info!("WORKER: RECEIVED BLOCK MESSAGES");
                     let mut notContainedHashes = Vec::<H256>::new();
                     let mut blockchain = self.blockchain.lock().unwrap();
                     let mut orphanbuffer = self.orphanbuffer.lock().unwrap();
@@ -154,7 +154,7 @@ impl Context {
 
                 Message::GetBlocks(hashes) => {
                     //debug!("GetBlocks: {:?}", hashes);
-                    info!("WORKER: BLOCKS REQUIRED");
+                    //info!("WORKER: BLOCKS REQUIRED");
                     let mut notContainedBlocks = Vec::<Block>::new();
                     let mut hashes = hashes.clone();
                     let mut blockchain = self.blockchain.lock().unwrap();
@@ -174,7 +174,7 @@ impl Context {
 
                 Message::Blocks(blocks) => {
                     //debug!("Blocks: {:?}", blocks);
-                    info!("WORKER: START RECEIVING BLOCKS");
+                    //info!("WORKER: START RECEIVING BLOCKS");
                     let mut blocks = blocks.clone();
                     let mut blockchain = self.blockchain.lock().unwrap();
                     let mut orphanbuffer = self.orphanbuffer.lock().unwrap();
@@ -183,15 +183,15 @@ impl Context {
                     let mut newlyProcessedBlockHashes = Vec::<H256>::new();
 
                     for block in blocks.iter() {
-                        info!("WORKER: RECEIVING BLOCKS...");
+                        //info!("WORKER: RECEIVING BLOCKS...");
                         //PoW check
                         let difficulty = blockchain.Blocks.get(&blockchain.tip.0).unwrap().0.getdifficulty();
                         if block.hash() <=  difficulty{
-                            info!("WORKER: DIFFICULTY CHECK1 SUCCESS");
+                            //info!("WORKER: DIFFICULTY CHECK1 SUCCESS");
                             if block.Header.difficulty == difficulty{
-                                info!("WORKER: DIFFICULTY CHECK2 SUCCESS");
+                                //info!("WORKER: DIFFICULTY CHECK2 SUCCESS");
                                 if !blockchain.Blocks.get(&block.getparent()).is_none(){
-                                    info!("WORKER: PARENT CHECK SUCCESS");
+                                    //info!("WORKER: PARENT CHECK SUCCESS");
                                     //println!("block parent: {:?}", block.getparent());
                                     //println!("WORKER: PRESENT TIP {:?}", blockchain.tip.0);
                                     //double spend check & signature check
@@ -199,11 +199,9 @@ impl Context {
                                     let mut state = self.state.lock().unwrap();
                                     let mut mempool = self.mempool.lock().unwrap();
                                     let mut check = true;
-                                    for key in state.Outputs.keys(){
-                                        println!("WORKER CHECK: STATE PREHASH:{:?}, PREINDEX:{:?}, ADDR: {:?}, VALUE {:?}", key.0, key.1, state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
-                                    }
+
                                     for content in contents.iter(){
-                                        println!("verify: {:?}, double: {:?}",content.verifySignedTransaction() , state.ifNotDoubleSpent(content));
+                                        //println!("verify: {:?}, double: {:?}",content.verifySignedTransaction() , state.ifNotDoubleSpent(content));
                                         if state.ifNotDoubleSpent(content) && content.verifySignedTransaction() {
                                             check = check && true;
                                         }
@@ -212,32 +210,37 @@ impl Context {
                                             break;
                                         }
                                     }
+
                                     std::mem::drop(state);
                                     std::mem::drop(mempool);
+
                                     if check{
                                         blockchain.insert(&block);
+                                        //info!("WORKER: BLOCKS RECEIVED");
+                                        println!("WORKER: CURRENT BLOCKCHAIN HEIGHT: {:?}", blockchain.tip.1);
+                                        // info!("Worker: Blocks mined by one can be received by the other.");
                                         let mut state = self.state.lock().unwrap();
                                         let mut mempool = self.mempool.lock().unwrap();
-                                        info!("WORKER: BLOCKS RECEIVED");
-                                        // info!("Worker: Blocks mined by one can be received by the other.");
                                         // TODO: Update State
                                         state.updateState(&contents);
                                         //TODO: Update Mempool
                                         mempool.updateMempool(&contents);
-
-                                        std::mem::drop(state);
-                                        std::mem::drop(mempool);
-
-                                        let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
-                                        let mut delay_u128 = now - block.gettimestamp();
-                                        let delay = delay_u128 as f32;
+                                        for key in state.Outputs.keys() {
+                                            println!("WORKER: UPDATED STATE ADDR: {:?}, VALUE {:?}", state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
+                                        }
+                                        //let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
+                                        //let mut delay_u128 = now - block.gettimestamp();
+                                        //let delay = delay_u128 as f32;
                                         // sum_delay += delay;
                                         // num_delay += 1;
-                                        println!("WORKER DELAY: {:?}", delay);
+                                        //println!("WORKER DELAY: {:?}", delay);
                                         // println!("sum_delay: {:?}", sum_delay);
                                         // println!("num_delay: {:?}", num_delay);
                                         newlyProcessedBlockHashes.push(block.hash());
+                                        std::mem::drop(state);
+                                        std::mem::drop(mempool);
                                     }
+
 
                                 }
                                 else{// orphan blocks created only when blocks were not inserted.
@@ -287,16 +290,16 @@ impl Context {
                                     //TODO: Update Mempool
                                     mempool.updateMempool(&contents);
 
+                                    info!("WORKER: ORPHAN BLOCKS RECEIVED");
+                                    //let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
+                                    //let mut delay_u128 = now - orphan.gettimestamp();
+                                    //let delay = delay_u128 as f32;
+                                    //println!("WORKER DELAY: {:?}", delay);
+                                    //newlyProcessedBlockHashes.push(orphan.hash());
                                     std::mem::drop(state);
                                     std::mem::drop(mempool);
-
-                                    info!("WORKER: ORPHAN BLOCKS RECEIVED");
-                                    let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
-                                    let mut delay_u128 = now - orphan.gettimestamp();
-                                    let delay = delay_u128 as f32;
-                                    println!("WORKER DELAY: {:?}", delay);
-                                    newlyProcessedBlockHashes.push(orphan.hash());
                                 }
+
 
                             }
                             orphanbuffer.remove(&newlyProcessedBlockHashes[idx]);
@@ -311,7 +314,7 @@ impl Context {
 
                 Message::NewTransactionHashes(hashes) => {
                     //println!("newTransactionhashes: {:?}",hashes);
-                    info!("WORKER: NEW TRANSACTION HASHES RECEIVED");
+                    //info!("WORKER: NEW TRANSACTION HASHES RECEIVED");
                     let mut mempool = self.mempool.lock().unwrap();
                     let mut notContainedHashes = Vec::<H256>::new();
                     if hashes.len() != 0 {
@@ -328,7 +331,7 @@ impl Context {
                 }
 
                 Message::GetTransactions(hashes) => {
-                    info!("WORKER: NEW TRANSACTIONS REQUIRED");
+                    //info!("WORKER: NEW TRANSACTIONS REQUIRED");
                     //println!("getTransactionhashes: {:?}",hashes);
                     let mut mempool = self.mempool.lock().unwrap();
                     let mut notContainedTransactions = Vec::<SignedTransaction>::new();
@@ -342,14 +345,14 @@ impl Context {
                     }
                     std::mem::drop(mempool);
                     if notContainedTransactions.len() != 0{
-                        info!("WORKER: SENDING TXS");
+                        //info!("WORKER: SENDING TXS");
                         peer.write(Message::Transactions(notContainedTransactions));
                     }
 
                 }
 
                 Message::Transactions(Transactions) => {
-                    info!("WORKER: ADDING NEW TRANSACTIONS");
+                    //info!("WORKER: ADDING NEW TRANSACTIONS");
                     //println!("Transactions: {:?}",Transactions);
                     let mut mempool = self.mempool.lock().unwrap();
                     let mut state = self.state.lock().unwrap();
@@ -360,7 +363,7 @@ impl Context {
                         if !mempool.Transactions.contains_key(&Transaction.hash()) {
                             //Transaction signature check
                             //info!("checking");
-                            println!("verify: {:?}, double: {:?}",Transaction.verifySignedTransaction() , state.ifNotDoubleSpent(Transaction));
+                            //println!("verify: {:?}, double: {:?}",Transaction.verifySignedTransaction() , state.ifNotDoubleSpent(Transaction));
                             if Transaction.verifySignedTransaction() && state.ifNotDoubleSpent(Transaction) {
                                 //info!("added");
                                 info!("WORKER: NEW TRANSACTIONS ADDED!");
@@ -375,10 +378,12 @@ impl Context {
                         self.server.broadcast(Message::NewTransactionHashes(addedTransactionHashes));
                     }
                     //println!("updated mempool: {:?}",mempool.Transactions);
-
                 }
 
             }
+
+            //let interval = time::Duration::from_micros(100000 as u64);
+            //thread::sleep(interval);
         }
     }
 }

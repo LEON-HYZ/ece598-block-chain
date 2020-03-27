@@ -165,7 +165,7 @@ impl Context {
             // TODO: actual mining
 
             if self.mempool.lock().unwrap().Transactions.keys().len() > 0 {
-                info!("MINER: STARTING...");
+                //info!("MINER: STARTING...");
                 let nonce:u32 = thread_rng().gen();
                 let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
 
@@ -185,7 +185,7 @@ impl Context {
 
                 let mut key_iter= mempool.Transactions.keys();
                 for key in mempool.Transactions.keys(){
-                    println!("MINER: MEMPOOL KEYS:{:?}, INPUT: {:?}, OUTPUT: {:?}", key, mempool.Transactions.get(key).unwrap().transaction.Input, mempool.Transactions.get(key).unwrap().transaction.Output);
+                    //println!("MINER: MEMPOOL KEYS:{:?}, INPUT: {:?}, OUTPUT: {:?}", key, mempool.Transactions.get(key).unwrap().transaction.Input, mempool.Transactions.get(key).unwrap().transaction.Output);
                 }
                 while tx_counter < block_size_limit {
                     match key_iter.next() {
@@ -209,7 +209,7 @@ impl Context {
                 std::mem::drop(state);
 
                 if signedTransaction.capacity() > 0 {
-                    info!("MINER: ADDING...");
+                    //info!("MINER: ADDING...");
 
                     //info!("MINER: MERKLETREE CHECKING...");
                     let mut MerkleTree = MerkleTree::new(&signedTransaction);
@@ -232,34 +232,49 @@ impl Context {
                     };
                     //println!("1: {:?}", newBlock.hash() );
                     //println!("2: {:?}", difficulty );
-                    info!("MINER: BLOCK CREATED");
+                    //info!("MINER: BLOCK CREATED");
 
                     if newBlock.hash() <= difficulty {
-                        info!("MINER: ADDED");
-                        //println!("miner tip: {:?}", self.blockchain.lock().unwrap().tip.0);
-                        self.blockchain.lock().unwrap().insert(&newBlock);
-                        miner_counter += 1;
-                        println!("MINER: CURRENT MINER COUNT: {:?}", miner_counter);
-                        println!("MINER: CURRENT BLOCKCHAIN HEIGHT: {:?}", self.blockchain.lock().unwrap().tip.1);
 
-                        //println!("Current TX : {:?}", newBlock.Content.content );
-                        //Mempool Update
-                        let mut mempool = self.mempool.lock().unwrap();
-                        mempool.updateMempool(&newBlock.Content.content);
-                        println!("MINER: UPDATED MEMPOOL: {:?}", mempool.Transactions.keys());
-                        std::mem::drop(mempool);
-
-                        //State Update
+                        let mut contents = newBlock.Content.content.clone();
                         let mut state = self.state.lock().unwrap();
-                        state.updateState(&newBlock.Content.content);
-                        //println!("Current tip: {:?}", blockchain.tip() );
-                        for key in state.Outputs.keys(){
-                            println!("MINER: UPDATED STATE PREHASH:{:?}, PREINDEX:{:?}, ADDR: {:?}, VALUE {:?}", key.0, key.1, state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
+                        let mut mempool = self.mempool.lock().unwrap();
+                        let mut check = true;
+                        for content in contents.iter(){
+                            if state.ifNotDoubleSpent(content) && content.verifySignedTransaction() {
+                                check = check && true;
+                            }
+                            else{
+                                check = check && false;
+                                break;
+                            }
                         }
                         std::mem::drop(state);
+                        std::mem::drop(mempool);
+                        if check {
+                            self.blockchain.lock().unwrap().insert(&newBlock);
 
-                        self.server.broadcast(Message::NewBlockHashes(self.blockchain.lock().unwrap().all_blocks_in_longest_chain()));
-                        info!("MINER: BLOCK MESSAGES SENT");
+                            //info!("MINER: NEW BLOCK ADDED");
+                            miner_counter += 1;
+                            println!("MINER: CURRENT MINER COUNT: {:?}", miner_counter);
+                            println!("MINER: CURRENT BLOCKCHAIN HEIGHT: {:?}", self.blockchain.lock().unwrap().tip.1);
+
+                            let mut state = self.state.lock().unwrap();
+                            let mut mempool = self.mempool.lock().unwrap();
+                            //Update Mempool
+                            mempool.updateMempool(&contents);
+                            //println!("MINER: UPDATED MEMPOOL: {:?}", mempool.Transactions.keys());
+                            //Update State
+                            state.updateState(&contents);
+                            for key in state.Outputs.keys() {
+                                println!("MINER: UPDATED STATE ADDR: {:?}, VALUE {:?}", state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
+                            }
+                            self.server.broadcast(Message::NewBlockHashes(self.blockchain.lock().unwrap().all_blocks_in_longest_chain()));
+                            //info!("MINER: BLOCK MESSAGES SENT");
+                            std::mem::drop(state);
+                            std::mem::drop(mempool);
+                        }
+
 
                     }
                 }

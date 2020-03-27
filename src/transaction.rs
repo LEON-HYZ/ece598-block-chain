@@ -4,7 +4,7 @@ use crate::crypto::hash::{H256, Hashable, H160, Hashable_160};
 use crate::network::message::{Message};
 use crate::network::server::Handle as ServerHandle;
 use std::sync::{Arc, Mutex};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use ring::{digest};
 
 use rand::{thread_rng, Rng};
@@ -222,6 +222,7 @@ impl Context {
         let mut readADD: bool = false;
         let mut other_address = Vec::<H160>::new();
         let mut all_address = Vec::<H160>::new();
+        let mut hashset = HashSet::<(H256,u32)>::new();
         // main mining loop
         loop {
 
@@ -311,8 +312,22 @@ impl Context {
                     pre_index.push(Key.1);
                 }
                 //recipient value
-                let dest_value = 10 as f32;
-                let rest_value = all_value - dest_value;
+                let mut dest_value:f32 = 0.0;
+                if all_value > 10.0 {
+                    let mut rng = rand::thread_rng();
+                    let dest_ = rng.gen_range(1,10);
+                    dest_value = dest_ as f32;
+                }
+                else if all_value <= 10.0 && all_value >= 2.0 {
+                    let mut rng = rand::thread_rng();
+                    let dest_= rng.gen_range(1,all_value as usize);
+                    dest_value = dest_ as f32;
+                }
+                else{
+                    dest_value = 1.0;
+                }
+
+                let rest_value = all_value - (dest_value as f32);
 
                 //recipient adresses
                 let mut rng = rand::thread_rng();
@@ -335,20 +350,33 @@ impl Context {
 
                     let mut mempool = self.mempool.lock().unwrap();
                     let mut state = self.state.lock().unwrap();
+                    let mut valid = true;
+                    for input in transaction.Input.clone() {
+                        if hashset.contains(&(input.prevTransaction,input.preOutputIndex)){
+                            valid = false;
+                        }
+                    }
+
+
                     if (!mempool.Transactions.contains_key(&SignedTransaction.hash()))
                         && SignedTransaction.verifySignedTransaction()
-                        && state.ifNotDoubleSpent(&SignedTransaction){
+                        && state.ifNotDoubleSpent(&SignedTransaction)
+                        && valid{
                         mempool.insert(&SignedTransaction);
+                        for input in transaction.Input.clone() {
+                            hashset.insert((input.prevTransaction,input.preOutputIndex));
+                        }
                         tx_counter = tx_counter + 1;
                         //println!("{:?}",tx_counter);
                         //info!("There is a transaction generator that can put transactions into these clients.");
                         let mut txHash = Vec::<H256>::new();
                         for key in mempool.Transactions.keys(){
                             txHash.push(key.clone());
-                            println!("TXG: MEMPOOL KEYS:{:?}, INPUT: {:?}, OUTPUT: {:?}", key, mempool.Transactions.get(key).unwrap().transaction.Input, mempool.Transactions.get(key).unwrap().transaction.Output);
+                            //println!("TXG: MEMPOOL KEYS:{:?}, INPUT: {:?}, OUTPUT: {:?}", key, mempool.Transactions.get(key).unwrap().transaction.Input, mempool.Transactions.get(key).unwrap().transaction.Output);
                         }
                         //txHash.push(SignedTransaction.hash().clone());
                         self.server.broadcast(Message::NewTransactionHashes(txHash));
+                        println!("TXG: {:?} PAID {:?} {:?} BTC", self.local_address, dest_addr,dest_value);
                     }
                     std::mem::drop(mempool);
                     std::mem::drop(state);
