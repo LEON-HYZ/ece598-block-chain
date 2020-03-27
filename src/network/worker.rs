@@ -21,6 +21,7 @@ use log::info;
 
 use std::thread;
 use crate::transaction;
+use std::ascii::escape_default;
 
 #[derive(Debug, Clone)]
 pub struct OrphanBuffer {
@@ -182,39 +183,58 @@ impl Context {
                     let mut newlyProcessedBlockHashes = Vec::<H256>::new();
 
                     for block in blocks.iter() {
-                        info!("WORKER: RECEIVING BLOCKS...");
+                        //info!("WORKER: RECEIVING BLOCKS...");
                         //PoW check
                         let difficulty = blockchain.Blocks.get(&blockchain.tip.0).unwrap().0.getdifficulty();
                         if block.hash() <=  difficulty{
-                            info!("WORKER: DIFFICULTY CHECK1 SUCCESS");
+                            //info!("WORKER: DIFFICULTY CHECK1 SUCCESS");
                             if block.Header.difficulty == difficulty{
-                                info!("WORKER: DIFFICULTY CHECK2 SUCCESS");
+                                //info!("WORKER: DIFFICULTY CHECK2 SUCCESS");
                                 if !blockchain.Blocks.get(&block.getparent()).is_none(){
-                                    info!("WORKER: PARENT CHECK SUCCESS");
+                                    //info!("WORKER: PARENT CHECK SUCCESS");
                                     //println!("block parent: {:?}", block.getparent());
-                                    println!("WORKER: PRESENT TIP {:?}", blockchain.tip.0);
-                                    blockchain.insert(&block);
-                                    info!("WORKER: BLOCKS RECEIVED");
-                                    //info!("Worker: Blocks mined by one can be received by the other.");
-                                    //TODO: Update State
+                                    //println!("WORKER: PRESENT TIP {:?}", blockchain.tip.0);
+                                    //double spend check & signature check
+                                    let mut contents = block.Content.content.clone();
                                     let mut state = self.state.lock().unwrap();
-                                    let mut content = block.Content.content.clone();
-                                    state.updateState(&content);
-                                    std::mem::drop(state);
-                                    //TODO: Update Mempool
                                     let mut mempool = self.mempool.lock().unwrap();
-                                    mempool.updateMempool(&content);
+                                    let mut check = true;
+                                    for content in contents.iter(){
+                                        if state.ifNotDoubleSpent(content) && content.verifySignedTransaction() {
+                                            check = check && true;
+                                        }
+                                        else{
+                                            check = check && false;
+                                            break;
+                                        }
+                                    }
+                                    std::mem::drop(state);
                                     std::mem::drop(mempool);
+                                    if check{
+                                        blockchain.insert(&block);
+                                        let mut state = self.state.lock().unwrap();
+                                        let mut mempool = self.mempool.lock().unwrap();
+                                        //info!("WORKER: BLOCKS RECEIVED");
+                                        // info!("Worker: Blocks mined by one can be received by the other.");
+                                        // TODO: Update State
+                                        state.updateState(&contents);
+                                        //TODO: Update Mempool
+                                        mempool.updateMempool(&contents);
 
-                                    let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
-                                    let mut delay_u128 = now - block.gettimestamp();
-                                    let delay = delay_u128 as f32;
-                                    // sum_delay += delay;
-                                    // num_delay += 1;
-                                    println!("WORKER DELAY: {:?}", delay);
-                                    // println!("sum_delay: {:?}", sum_delay);
-                                    // println!("num_delay: {:?}", num_delay);
-                                    newlyProcessedBlockHashes.push(block.hash());
+                                        std::mem::drop(state);
+                                        std::mem::drop(mempool);
+
+                                        let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
+                                        let mut delay_u128 = now - block.gettimestamp();
+                                        let delay = delay_u128 as f32;
+                                        // sum_delay += delay;
+                                        // num_delay += 1;
+                                        println!("WORKER DELAY: {:?}", delay);
+                                        // println!("sum_delay: {:?}", sum_delay);
+                                        // println!("num_delay: {:?}", num_delay);
+                                        newlyProcessedBlockHashes.push(block.hash());
+                                    }
+
                                 }
                                 else{// orphan blocks created only when blocks were not inserted.
                                     // Insert orphan blocks into buffer
@@ -237,13 +257,43 @@ impl Context {
                         if orphanbuffer.isParentIn(&newlyProcessedBlockHashes[idx]){
                             let orphans = orphanbuffer.getOrphanBlocks(&newlyProcessedBlockHashes[idx]);
                             for orphan in orphans{
-                                blockchain.insert(&orphan);
-                                info!("WORKER: ORPHAN BLOCKS RECEIVED");
-                                let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
-                                let mut delay_u128 = now - orphan.gettimestamp();
-                                let delay = delay_u128 as f32;
-                                println!("WORKER DELAY: {:?}", delay);
-                                newlyProcessedBlockHashes.push(orphan.hash());
+                                let mut contents = orphan.Content.content.clone();
+                                let mut state = self.state.lock().unwrap();
+                                let mut mempool = self.mempool.lock().unwrap();
+                                let mut check = true;
+                                for content in contents.iter(){
+                                    if state.ifNotDoubleSpent(content) && content.verifySignedTransaction() {
+                                        check = check && true;
+                                    }
+                                    else{
+                                        check = check && false;
+                                        break;
+                                    }
+                                }
+                                std::mem::drop(state);
+                                std::mem::drop(mempool);
+                                if check {
+                                    blockchain.insert(&orphan);
+                                    let mut state = self.state.lock().unwrap();
+                                    let mut mempool = self.mempool.lock().unwrap();
+                                    //info!("WORKER: BLOCKS RECEIVED");
+                                    // info!("Worker: Blocks mined by one can be received by the other.");
+                                    // TODO: Update State
+                                    state.updateState(&contents);
+                                    //TODO: Update Mempool
+                                    mempool.updateMempool(&contents);
+
+                                    std::mem::drop(state);
+                                    std::mem::drop(mempool);
+
+                                    info!("WORKER: ORPHAN BLOCKS RECEIVED");
+                                    let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
+                                    let mut delay_u128 = now - orphan.gettimestamp();
+                                    let delay = delay_u128 as f32;
+                                    println!("WORKER DELAY: {:?}", delay);
+                                    newlyProcessedBlockHashes.push(orphan.hash());
+                                }
+
                             }
                             orphanbuffer.remove(&newlyProcessedBlockHashes[idx]);
                         }
@@ -266,6 +316,7 @@ impl Context {
                             }
                         }
                     }
+                    std::mem::drop(mempool);
                     if notContainedHashes.len() != 0{
                         peer.write(Message::GetTransactions(notContainedHashes));
                     }
@@ -283,6 +334,7 @@ impl Context {
                             }
                         }
                     }
+                    std::mem::drop(mempool);
                     if notContainedTransactions.len() != 0{
                         peer.write(Message::Transactions(notContainedTransactions));
                     }
@@ -300,13 +352,15 @@ impl Context {
                         if !mempool.Transactions.contains_key(&Transaction.hash()) {
                             //Transaction signature check
                             //info!("checking");
-                            if Transaction.verifySignedTransaction() {
+                            if Transaction.verifySignedTransaction() && state.ifNotDoubleSpent(Transaction) {
                                 //info!("added");
                                 mempool.insert(Transaction);
                                 addedTransactionHashes.push(Transaction.hash());
                             }
                         }
                     }
+                    std::mem::drop(mempool);
+                    std::mem::drop(state);
                     if addedTransactionHashes.capacity() > 0 {
                         self.server.broadcast(Message::NewTransactionHashes(addedTransactionHashes));
                     }

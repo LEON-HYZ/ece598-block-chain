@@ -13,7 +13,7 @@ use ring::{digest};
 use log::info;
 
 use crossbeam::channel::{unbounded, Receiver, Sender, TryRecvError};
-use std::time;
+use std::{time, fs};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use std::thread;
@@ -115,6 +115,7 @@ impl Context {
 
     fn miner_loop(&mut self) {
         let mut miner_counter:i32 = 0;
+        let mut readICO = false;
         // main mining loop
         loop {
             // check and react to control signals
@@ -138,10 +139,32 @@ impl Context {
             if let OperatingState::ShutDown = self.operating_state {
                 return;
             }
+
+            //Read ICO & Update initial state
+            if !readICO {
+                // Initialize State
+                //println!("local: {:?}", self.local_address);
+                let mut state = self.state.lock().unwrap();
+                info!("The ICO is working on local process");
+                let data = fs::read("ICO.txt").expect("Unable to read file");
+                let data_len: usize = (data.len() / 20) as usize;
+                println!("data_length: {:?}", data.len());
+                for i in 0..data_len {
+                    let mut start = i * 20;
+                    let mut end = (i + 1) * 20;
+                    let mut addr_u8: [u8; 20] = [0; 20];
+                    addr_u8.clone_from_slice(&data[start..end]);
+                    let mut address: H160 = <H160>::from(addr_u8);
+                    //println!("all: {:?}", address);
+                    state.Outputs.insert((<H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8])), i as u32), (100.0 as f32, address));
+                }
+                readICO = true;
+                println!("LOCAL STATES: {:?}", state.Outputs);
+                std::mem::drop(state);
+            }
             // TODO: actual mining
-            let mut mempool = self.mempool.lock().unwrap();
-            let mut key_iter = mempool.Transactions.keys();
-            if key_iter.len() > 0 {
+
+            if self.mempool.lock().unwrap().Transactions.keys().len() > 0 {
                 info!("MINER: STARTING...");
                 let nonce:u32 = thread_rng().gen();
                 let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
@@ -154,14 +177,15 @@ impl Context {
 
                 // read transactions from mempool
                 let mut signedTransaction = Vec::<SignedTransaction>::new();
-
-                let mut state = self.state.lock().unwrap();
                 let block_size_limit = 5;
                 let mut tx_counter = 0;
 
-                println!("MINER: MEMPOOL {:?}", key_iter);
+                let mut state = self.state.lock().unwrap();
+                let mut mempool = self.mempool.lock().unwrap();
 
-               while tx_counter < block_size_limit {
+                let mut key_iter= mempool.Transactions.keys();
+                println!("MINER: MEMPOOL {:?}", key_iter);
+                while tx_counter < block_size_limit {
                     match key_iter.next() {
                         Some(hash) => {
                             //println!("Miner: tx: {:?}",hash);
@@ -184,8 +208,7 @@ impl Context {
 
                 if signedTransaction.capacity() > 0 {
                     info!("MINER: ADDING...");
-                    let mut mempool = self.mempool.lock().unwrap();
-                    let mut state = self.state.lock().unwrap();
+
                     //info!("MINER: MERKLETREE CHECKING...");
                     let mut MerkleTree = MerkleTree::new(&signedTransaction);
                     //info!("MINER: MERKLETREE CHECKED");
@@ -209,7 +232,6 @@ impl Context {
                     //println!("2: {:?}", difficulty );
                     info!("MINER: BLOCK CREATED");
 
-
                     if newBlock.hash() <= difficulty {
                         info!("MINER: ADDED");
                         //println!("miner tip: {:?}", self.blockchain.lock().unwrap().tip.0);
@@ -220,30 +242,26 @@ impl Context {
 
                         //println!("Current TX : {:?}", newBlock.Content.content );
                         //Mempool Update
+                        let mut mempool = self.mempool.lock().unwrap();
                         mempool.updateMempool(&newBlock.Content.content);
                         println!("MINER: UPDATED MEMPOOL: {:?}", mempool.Transactions.keys());
+                        std::mem::drop(mempool);
 
                         //State Update
+                        let mut state = self.state.lock().unwrap();
                         state.updateState(&newBlock.Content.content);
                         //println!("Current tip: {:?}", blockchain.tip() );
                         for key in state.Outputs.keys(){
                             println!("MINER: UPDATED STATE ADDR: {:?}, VALUE {:?}", state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
                         }
+                        std::mem::drop(state);
 
                         self.server.broadcast(Message::NewBlockHashes(self.blockchain.lock().unwrap().all_blocks_in_longest_chain()));
                         info!("MINER: BLOCK MESSAGES SENT");
 
                     }
-                    std::mem::drop(mempool);
-                    std::mem::drop(state);
                 }
             }
-
-
-
-
-
-
 
             if let OperatingState::Run(i) = self.operating_state {
                 if i != 0 {
@@ -251,7 +269,6 @@ impl Context {
                     thread::sleep(interval);
                 }
             }
-
             let interval = time::Duration::from_micros(1000 as u64);
             thread::sleep(interval);
         }

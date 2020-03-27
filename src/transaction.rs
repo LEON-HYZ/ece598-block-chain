@@ -219,7 +219,7 @@ impl Context {
     //transaction generator
     fn transaction_loop(&mut self) {
         let mut tx_counter: i32 = 0;
-        let mut readICO: bool = false;
+        let mut readADD: bool = false;
         let mut other_address = Vec::<H160>::new();
         let mut all_address = Vec::<H160>::new();
         // main mining loop
@@ -248,11 +248,12 @@ impl Context {
             }
 
 
-            let mut state = self.state.lock().unwrap();
-            //TODO: Read ICO just once and Update State
-            if !readICO {
+
+            //Read Address just once
+            if !readADD {
                 // Initialize State
                 //println!("local: {:?}", self.local_address);
+                //let mut state = self.state.lock().unwrap();
                 info!("The ICO is working on local process");
                 let data = fs::read("ICO.txt").expect("Unable to read file");
                 let data_len: usize = (data.len() / 20) as usize;
@@ -264,7 +265,7 @@ impl Context {
                     addr_u8.clone_from_slice(&data[start..end]);
                     let mut address: H160 = <H160>::from(addr_u8);
                     //println!("all: {:?}", address);
-                    state.Outputs.insert((<H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8])), i as u32), (100.0 as f32, address));
+                    //state.Outputs.insert((<H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8])), i as u32), (100.0 as f32, address));
                     all_address.push(address);
 
                     //Record addresses
@@ -273,82 +274,90 @@ impl Context {
                     }
                 }
 
-                readICO = true;
-                println!("Lcoal Addr: {:?}, Local States:{:?}", self.local_address, state.Outputs);
+                readADD = true;
+                println!("LOCAL ADDR: {:?},", self.local_address);
+                //println!("LOCAL ADDR: {:?}, LOCAL STATES:{:?}", self.local_address, state.Outputs);
+                //std::mem::drop(state);
             }
 
+
             //check if valid in state
+            let mut state = self.state.lock().unwrap();
+            let mut myStateKeys = Vec::<(H256, u32)>::new();
+            let mut all_value = 0 as f32;
             if state.Outputs.keys().len() > 0 {
-                let mut myStateKeys = Vec::<(H256, u32)>::new();
                 for State in state.Outputs.keys() {
                     //state check to avoid double spent
                     //State: hash, output index <-> value, recipient address
                     if state.Outputs.get(State).unwrap().1 == self.local_address {
                         myStateKeys.push(State.clone());
-                    }
-                }
-
-                if myStateKeys.capacity() > 0 {
-                    //input
-                    let mut pre_hash = Vec::<H256>::new();
-                    let mut pre_index = Vec::<u32>::new();
-                    //output
-                    let mut out_value = Vec::<f32>::new();
-                    let mut recp_addr = Vec::<H160>::new();
-                    let mut all_value = 0 as f32;
-
-                    for Key in myStateKeys.iter() {
-                        pre_hash.push(Key.0);
-                        pre_index.push(Key.1);
-                        all_value = all_value + state.Outputs.get(&Key).unwrap().0; //balance
-                    }
-                    //recipient value
-                    let dest_value = 10 as f32;
-                    let rest_value = all_value - dest_value;
-
-                    //recipient adresses
-                    let mut rng = rand::thread_rng();
-                    let mut num = rng.gen_range(0, other_address.len());
-                    let dest_addr: H160 = other_address[num];
-                    recp_addr.push(dest_addr);
-                    recp_addr.push(self.local_address);
-
-                    if rest_value >= 0.0 {
-                        out_value.push(dest_value);
-                        out_value.push(rest_value);
-
-                        //generating signed transactions
-                        let mut transaction = generate_transaction(&pre_hash, &pre_index, &out_value, &recp_addr);
-                        let signature = sign(&transaction, &self.key_pair);
-                        let SignedTransaction = SignedTransaction::new(&transaction, &signature, &self.key_pair.public_key());
-
-                        //need to check signature before inserting to mempool
-
-                        let mut mempool = self.mempool.lock().unwrap();
-                        if (!mempool.Transactions.contains_key(&SignedTransaction.hash())) && SignedTransaction.verifySignedTransaction() {
-                            mempool.insert(&SignedTransaction);
-                            tx_counter = tx_counter + 1;
-                            //println!("{:?}",tx_counter);
-                            //info!("There is a transaction generator that can put transactions into these clients.");
-                            println!("TXG: MEMPOOL: {:?}", mempool.Transactions.keys());
-                            let mut txHash = Vec::<H256>::new();
-                            txHash.push(SignedTransaction.hash().clone());
-                            self.server.broadcast(Message::NewTransactionHashes(txHash));
-                        }
-                        std::mem::drop(mempool);
+                        all_value = all_value + state.Outputs.get(&State).unwrap().0; //balance
                     }
                 }
             }
-
             std::mem::drop(state);
+
+            if myStateKeys.capacity() > 0 {
+                //input
+                let mut pre_hash = Vec::<H256>::new();
+                let mut pre_index = Vec::<u32>::new();
+                //output
+                let mut out_value = Vec::<f32>::new();
+                let mut recp_addr = Vec::<H160>::new();
+
+
+                for Key in myStateKeys.iter() {
+                    pre_hash.push(Key.0);
+                    pre_index.push(Key.1);
+                }
+                //recipient value
+                let dest_value = 10 as f32;
+                let rest_value = all_value - dest_value;
+
+                //recipient adresses
+                let mut rng = rand::thread_rng();
+                let mut num = rng.gen_range(0, other_address.len());
+                let dest_addr: H160 = other_address[num];
+                recp_addr.push(dest_addr);
+                if rest_value >= 0.0 {
+                    out_value.push(dest_value);
+                    if rest_value > 0.0 {
+                        out_value.push(rest_value);
+                        recp_addr.push(self.local_address);
+                    }
+
+                    //generating signed transactions
+                    let mut transaction = generate_transaction(&pre_hash, &pre_index, &out_value, &recp_addr);
+                    let signature = sign(&transaction, &self.key_pair);
+                    let SignedTransaction = SignedTransaction::new(&transaction, &signature, &self.key_pair.public_key());
+
+                    //need to check signature before inserting to mempool
+
+                    let mut mempool = self.mempool.lock().unwrap();
+                    if (!mempool.Transactions.contains_key(&SignedTransaction.hash())) && SignedTransaction.verifySignedTransaction() {
+                        mempool.insert(&SignedTransaction);
+                        tx_counter = tx_counter + 1;
+                        //println!("{:?}",tx_counter);
+                        //info!("There is a transaction generator that can put transactions into these clients.");
+                        println!("TXG: MEMPOOL: {:?}", mempool.Transactions.keys());
+                        let mut txHash = Vec::<H256>::new();
+                        txHash.push(SignedTransaction.hash().clone());
+                        self.server.broadcast(Message::NewTransactionHashes(txHash));
+                    }
+                    std::mem::drop(mempool);
+                }
+                
+            }
+
+
             if let OperatingState::Run(i) = self.operating_state {
                 if i != 0 {
                     let interval = time::Duration::from_micros(i as u64);
                     thread::sleep(interval);
                 }
             }
-            let interval = time::Duration::from_micros(10000 as u64);
-            thread::sleep(interval);
+            //let interval = time::Duration::from_micros(10000 as u64);
+            //thread::sleep(interval);
         }
     }
 }
