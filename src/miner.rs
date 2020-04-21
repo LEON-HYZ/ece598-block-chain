@@ -6,7 +6,7 @@ use crate::crypto::hash::{H256, Hashable, H160};
 use crate::blockchain::Blockchain;
 use crate::block::{Block,Header,Content};
 use crate::crypto::merkle::{MerkleTree};
-use crate::transaction::{Transaction, generate_random_transaction_, Mempool, State, StateSet, SignedTransaction};
+use crate::transaction::{Transaction, Mempool, State, StateSet, SignedTransaction};
 use rand::{thread_rng, Rng};
 use ring::{digest};
 

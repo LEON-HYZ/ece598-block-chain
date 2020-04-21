@@ -265,9 +265,9 @@ impl Context {
 
 
 
-            //Read Address just once
+            // Read Address just once (for initialization)
+            // Each node should know each other's address in order to generate transactions
             if !readADD {
-                // Initialize State
                 //println!("local: {:?}", self.local_address);
                 //let mut state = self.state.lock().unwrap();
                 //info!("The ICO is working on local process");
@@ -518,7 +518,7 @@ pub fn generate_random_signed_transaction_() -> SignedTransaction {
 
     return SignedTransaction;
 }
-
+/*
 pub fn generate_random_transaction_() -> Transaction {
 
     let new_hash = <H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8]));
@@ -550,39 +550,5 @@ pub fn generate_random_transaction_() -> Transaction {
 
     return Transaction;
 }
+*/
 
-#[cfg(any(test, test_utilities))]
-pub mod tests {
-    use super::*;
-    use crate::crypto::key_pair;
-
-    pub fn generate_random_transaction() -> Transaction {
-        return generate_random_transaction_()
-    }
-
-    #[test]
-    fn sign_verify() {
-        let t = generate_random_transaction();
-        let key = key_pair::random();
-        let signature = sign(&t, &key);
-        assert!(verify(&t, &(key.public_key()), &signature));
-    }
-
-    #[test]
-    fn assignment2_transaction_1() {
-        let t = generate_random_transaction();
-        let key = key_pair::random();
-        let signature = sign(&t, &key);
-        assert!(verify(&t, &(key.public_key()), &signature));
-    }
-    #[test]
-    fn assignment2_transaction_2() {
-        let t = generate_random_transaction();
-        let key = key_pair::random();
-        let signature = sign(&t, &key);
-        let key_2 = key_pair::random();
-        let t_2 = generate_random_transaction();
-        assert!(!verify(&t_2, &(key.public_key()), &signature));
-        assert!(!verify(&t, &(key_2.public_key()), &signature));
-    }
-}

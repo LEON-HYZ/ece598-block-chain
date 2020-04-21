@@ -5,7 +5,7 @@ use log::{debug, error, info, trace, warn};
 use mio::{self, net};
 use mio_extras::channel;
 use std::sync::mpsc;
-use std::thread;
+use std::{thread, fs};
 
 const MAX_INCOMING_CLIENT: usize = 256;
 const MAX_EVENT: usize = 1024;
@@ -120,6 +120,13 @@ impl Context {
             Err(e) => {
                 error!("Error initializing incoming peer {}: {}", addr, e);
             }
+        }
+        let data = fs::read("ICO.txt").expect("Unable to read file");
+        if data.len() == 40 {
+            info!("TWO PROCESSES ARE CONNECTED");
+        }
+        else if data.len() == 60 {
+            info!("THREE PROCESSES ARE CONNECTED");
         }
         Ok(())
     }

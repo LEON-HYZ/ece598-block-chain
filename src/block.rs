@@ -2,7 +2,6 @@ use serde::{Serialize, Deserialize};
 use crate::crypto::hash::{H256, Hashable};
 use crate::crypto::merkle::{MerkleTree};
 use crate::transaction::{Transaction, SignedTransaction, generate_random_signed_transaction_};
-use crate::transaction::generate_random_transaction_;
 
 
 use rand::{thread_rng, Rng};
@@ -56,77 +55,38 @@ impl Block{
 }
 
 
+// The difficulty here should also be modified if it is modified in transaction generator
 pub fn generate_random_block_(parent: &H256) -> Block {
-        let mut nonce:u32 = thread_rng().gen();
-        let mut timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
-        let mut bytes32 = [255u8;32];
-        bytes32[0]=10;
-        bytes32[1]=20;
-        let difficulty : H256 = bytes32.into();
-        let mut transaction = Vec::<SignedTransaction>::new();
-        transaction.push(generate_random_signed_transaction_());
-        let mut MerkleTree = MerkleTree::new(&transaction);
+    let mut nonce:u32 = thread_rng().gen();
+    let mut timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
+    let mut bytes32 = [255u8;32];
+    bytes32[0]=10;
+    bytes32[1]=20;
+    let difficulty : H256 = bytes32.into();
+    let mut transaction = Vec::<SignedTransaction>::new();
+    transaction.push(generate_random_signed_transaction_());
+    let mut MerkleTree = MerkleTree::new(&transaction);
 
 
 
-        let newHeader = Header{
-            parent: *parent,
-            nonce: nonce,
-            difficulty: difficulty,
-            timestamp: timestamp,
-            merkleRoot: MerkleTree.root(),
-        };
+    let newHeader = Header{
+        parent: *parent,
+        nonce: nonce,
+        difficulty: difficulty,
+        timestamp: timestamp,
+        merkleRoot: MerkleTree.root(),
+    };
 
-        let newContent = Content{
-            content: transaction,
-        };
+    let newContent = Content{
+        content: transaction,
+    };
 
-        let newBlock = Block{
-            Header: newHeader,
-            Content: newContent,
-        };
+    let newBlock = Block{
+        Header: newHeader,
+        Content: newContent,
+    };
 
-        return newBlock;
+    return newBlock;
 }
 
-#[cfg(any(test, test_utilities))]
-pub mod test {
-    use super::*;
-    use crate::crypto::hash::H256;
-    use crate::transaction::tests::generate_random_transaction;
 
-    pub fn generate_random_block(parent: &H256) -> Block {
-    	let mut nonce:u32 = thread_rng().gen();
-    	let mut timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
-
-        let mut bytes32 = [255u8;32];
-        bytes32[0]=10;
-        bytes32[1]=20;
-        let difficulty : H256 = bytes32.into();
-
-        let mut transaction = Vec::<SignedTransaction>::new();
-        transaction.push(generate_random_signed_transaction_());
-        let mut MerkleTree = MerkleTree::new(&transaction);
-
-
-
-        let newHeader = Header{
-        	parent: *parent,
-    		nonce: nonce,
-    		difficulty: difficulty,
-    		timestamp: timestamp,
-    		merkleRoot: MerkleTree.root(),
-        };
-
-        let newContent = Content{
-        	content: transaction,
-        };
-
-        let newBlock = Block{
-        	Header: newHeader,
-    		Content: newContent,
-        };
-
-        return newBlock;
-    }
-}

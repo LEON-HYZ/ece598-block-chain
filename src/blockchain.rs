@@ -62,21 +62,3 @@ impl Blockchain {
 
 
 
-#[cfg(any(test, test_utilities))]
-mod tests {
-    use super::*;
-    use crate::block::test::generate_random_block;
-    use crate::crypto::hash::Hashable;
-
-    #[test]
-    fn insert_one() {
-        let mut blockchain = Blockchain::new();
-        let genesis_hash = blockchain.tip();
-        println!("genesis_hash:{:?}", genesis_hash);
-        println!("tip1:{:?}", blockchain.tip);
-        let block = generate_random_block(&genesis_hash);
-        println!("tip2:{:?}", blockchain.tip);
-        blockchain.insert(&block);
-        assert_eq!(blockchain.tip(), block.hash());
-    }
-}

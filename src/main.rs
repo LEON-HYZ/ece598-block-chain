@@ -115,13 +115,7 @@ fn main() {
     // let mut new_num_delay:u8 = 0.0;
     // let num_delay = Arc::new(Mutex::new(new_num_delay));
 
-    let data = fs::read("ICO.txt").expect("Unable to read file");
-    if data.len() == 40 {
-        info!("TWO PROCESSES ARE CONNECTED");
-    }
-    else if data.len() == 60 {
-        info!("THREE PROCESSES ARE CONNECTED");
-    }
+
     //println!("{:?}", data);
 
 
@@ -133,8 +127,6 @@ fn main() {
         &state,
         &stateSet,
         &local_address,
-        // &sum_delay,
-        // &num_delay,
         p2p_workers,
         msg_rx,
         &server,
