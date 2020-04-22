@@ -207,7 +207,7 @@ impl Handle {
     }
 
 }
-
+//transaction generator
 impl Context {
     pub fn start(mut self) {
         thread::Builder::new()
@@ -298,6 +298,8 @@ impl Context {
 
 
             //check if valid in state
+            //read states to obtain ledger: balance, ready to generate txs
+            //TODO: Read state from archival node
             let mut state = self.state.lock().unwrap();
             let mut myStateKeys = Vec::<(H256, u32)>::new();
             let mut all_value = 0 as f32;
@@ -307,7 +309,7 @@ impl Context {
                     //State: hash, output index <-> value, recipient address
                     if state.Outputs.get(State).unwrap().1 == self.local_address {
                         myStateKeys.push(State.clone());
-                        all_value = all_value + state.Outputs.get(&State).unwrap().0; //balance
+                        all_value = all_value + state.Outputs.get(&State).unwrap().0; //account balance
                     }
                 }
             }
@@ -364,7 +366,7 @@ impl Context {
                     //need to check signature before inserting to mempool
 
                     let mut mempool = self.mempool.lock().unwrap();
-                    let mut state = self.state.lock().unwrap();
+                    let mut state = self.state.lock().unwrap(); //TODO
                     let mut valid = true;
                     for input in transaction.Input.clone() {
                         if hashset.contains(&(input.prevTransaction,input.preOutputIndex)){
@@ -375,7 +377,7 @@ impl Context {
 
                     if (!mempool.Transactions.contains_key(&SignedTransaction.hash()))
                         && SignedTransaction.verifySignedTransaction()
-                        && state.ifNotDoubleSpent(&SignedTransaction)
+                        && state.ifNotDoubleSpent(&SignedTransaction) //TODO
                         && valid{
                         mempool.insert(&SignedTransaction);
                         for input in transaction.Input.clone() {
@@ -444,12 +446,26 @@ pub fn generate_transaction(preHash:&Vec<H256>, preIndex:&Vec<u32>, outValue:&Ve
 
 //transaction Handle Ends
 
+
+//TODO: Witness A <-> (a, g^b) <=> a - tx prime number, (g^b)^a = A
+/*state:
+order from txs in a Block
+a_1 A->B 1BTC (a_1, g^(a_2*a_3*...*a_6))
+a_2 A->A 9BTC (a_2, g^(a_1*a_3*...*a_6))
+a_3 B->C 2BTC (a_3, g^(a_1*a_2*...*a_6))
+a_4 B->B 8BTC (a_4, g^(a_1*a_2*...*a_6))
+a_5 C->B 3BTC (a_5, g^(a_1*a_2*...*a_6))
+a_6 C->C 7BTC (a_6, g^(a_1*a_2*...*a_5))
+A = g^(a_1*a_2*...*a_6)
+*/
+//TODO:Change the State to State Witness (+Balance)
+//TODO:NewState=STF(State,Transaction) with NewState = STF’(Transaction,State Witness)
 //state Begins
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct State {
     pub Outputs: HashMap<(H256, u32),(f32, H160)>, // hash, output index <-> value, recipient address
 }
-
+//TODO:MOVE TO ARCHIVAL NODE
 impl State {
     pub fn new() -> Self{
         let hashmap:HashMap<(H256, u32),(f32, H160)> = HashMap::new();
@@ -495,9 +511,6 @@ impl State {
 //state Ends
 
 
-
-
-
 pub fn generate_random_signed_transaction_() -> SignedTransaction {
 
     let new_hash = <H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8]));
@@ -518,37 +531,4 @@ pub fn generate_random_signed_transaction_() -> SignedTransaction {
 
     return SignedTransaction;
 }
-/*
-pub fn generate_random_transaction_() -> Transaction {
-
-    let new_hash = <H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8]));
-    let rand_addr = <H160>::from(digest::digest(&digest::SHA256,"442cabd17e40d95ac0932d977c0759397b9db4d93c4d62c368b95419db574db0".as_bytes()));
-    let rand_u32:u32 = rand::thread_rng().gen();
-    let rand_f32:f32 = rand::thread_rng().gen();
-
-    let input = input{
-        prevTransaction : new_hash,
-        preOutputIndex: rand_u32,
-    };
-
-    let output = output{
-        recpAddress : rand_addr,
-        value : rand_f32,
-        index: rand_u32,
-    };
-
-    let mut inputVec = Vec::<input>::new();
-    let mut outputVec = Vec::<output>::new();
-
-    inputVec.push(input);
-    outputVec.push(output);
-
-    let mut Transaction = Transaction{
-        Input : inputVec,
-        Output : outputVec,
-    };
-
-    return Transaction;
-}
-*/
 

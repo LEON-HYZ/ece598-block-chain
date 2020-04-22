@@ -276,11 +276,11 @@ impl Context {
                             let orphans = orphanbuffer.getOrphanBlocks(&newlyProcessedBlockHashes[idx]);
                             for orphan in orphans{
                                 let mut contents = orphan.Content.content.clone();
-                                let mut state = self.state.lock().unwrap();
+                                let mut state = self.state.lock().unwrap(); //TODO
                                 let mut mempool = self.mempool.lock().unwrap();
                                 let mut check = true;
                                 for content in contents.iter(){
-                                    if state.ifNotDoubleSpent(content) && content.verifySignedTransaction() {
+                                    if state.ifNotDoubleSpent(content) && content.verifySignedTransaction() { //TODO
                                         check = check && true;
                                     }
                                     else{
@@ -297,7 +297,7 @@ impl Context {
                                     //info!("WORKER: BLOCKS RECEIVED");
                                     // info!("Worker: Blocks mined by one can be received by the other.");
                                     // Update State
-                                    state.updateState(&contents);
+                                    state.updateState(&contents); //TODO
                                     //Update Mempool
                                     mempool.updateMempool(&contents);
 

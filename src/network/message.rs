@@ -13,6 +13,8 @@ pub enum Message {
     Blocks(Vec<Block>),
     NewTransactionHashes(Vec<H256>),
     GetTransactions(Vec<H256>),
-    Transactions(Vec<SignedTransaction>), 
+    Transactions(Vec<SignedTransaction>),
+    //TODO:Double Spend Check
+    //TODO:Update State Witness, Balance
 }
 
