@@ -9,7 +9,7 @@ use crate::crypto::hash::{H256, Hashable, H160};
 use crate::blockchain::Blockchain;
 use crate::block::{Block,Header,Content};
 use crate::crypto::merkle::{MerkleTree};
-use crate::transaction::{Mempool, State, StateSet, SignedTransaction};
+use crate::transaction::{Mempool, StateWitness, StateSet, SignedTransaction};
 use ring::signature::{Ed25519KeyPair, Signature, KeyPair, VerificationAlgorithm, EdDSAParameters};
 
 use std::collections::HashMap;
@@ -69,37 +69,40 @@ pub struct Context {
     blockchain: Arc<Mutex<Blockchain>>,
     orphanbuffer: Arc<Mutex<OrphanBuffer>>,
     mempool: Arc<Mutex<Mempool>>,
-    state: Arc<Mutex<State>>,
-    stateSet: Arc<Mutex<StateSet>>,
+    stateWitness: Arc<Mutex<StateWitness>>,
+    //stateSet: Arc<Mutex<StateSet>>,
     local_address: H160,
     msg_chan: channel::Receiver<(Vec<u8>, peer::Handle)>,
     num_worker: usize,
     server: ServerHandle,
+    ifArchival: bool,
 }
 
 pub fn new(
     blockchain: &Arc<Mutex<Blockchain>>,
     orphanbuffer: &Arc<Mutex<OrphanBuffer>>,
     mempool: &Arc<Mutex<Mempool>>,
-    state: &Arc<Mutex<State>>,
-    stateSet: &Arc<Mutex<StateSet>>,
+    stateWitness: &Arc<Mutex<StateWitness>>,
+    //stateSet: &Arc<Mutex<StateSet>>,
     local_address: &H160,
     num_worker: usize,
     msg_src: channel::Receiver<(Vec<u8>, peer::Handle)>,
     server: &ServerHandle,
+    ifArchival: bool
 ) -> Context {
     Context {
         blockchain: Arc::clone(blockchain),
         orphanbuffer: Arc::clone(orphanbuffer),
         mempool: Arc::clone(mempool),
-        state: Arc::clone(state),
-        stateSet: Arc::clone(stateSet),
+        stateWitness: Arc::clone(stateWitness),
+        //stateSet: Arc::clone(stateSet),
         local_address: *local_address,
         // sum_delay: Arc::clone(sum_delay),
         // num_delay: Arc::clone(num_delay),
         msg_chan: msg_src,
         num_worker,
         server: server.clone(),
+        ifArchival: *ifArchival,
     }
 }
 
@@ -195,14 +198,14 @@ impl Context {
                                     //println!("WORKER: PRESENT TIP {:?}", blockchain.tip.0);
                                     //double spend check & signature check
                                     let mut contents = block.Content.content.clone();
-                                    let mut state = self.state.lock().unwrap();
+                                    //let mut state = self.state.lock().unwrap();
+                                    let mut stateWitness = self.stateWitness.lock().unwrap();
                                     let mut mempool = self.mempool.lock().unwrap();
-                                    let mut stateSet = self.stateSet.lock().unwrap();
                                     let mut check = true;
 
                                     for content in contents.iter(){
                                         //println!("verify: {:?}, double: {:?}",content.verifySignedTransaction() , state.ifNotDoubleSpent(content));
-                                        if state.ifNotDoubleSpent(content) && content.verifySignedTransaction() {
+                                        if stateWitness.ifNotDoubleSpent(block.getparent(), Accumulator) && content.verifySignedTransaction() { //TODO ACCUMULATOR
                                             check = check && true;
                                         }
                                         else{
@@ -220,35 +223,32 @@ impl Context {
                                         info!("WORKER: BLOCKS RECEIVED FROM THE OTHER SENDER");
                                         println!("WORKER: CURRENT BLOCKCHAIN HEIGHT: {:?}", blockchain.tip.1);
                                         // info!("Worker: Blocks mined by one can be received by the other.");
-                                        let mut state = self.state.lock().unwrap();
+                                        let mut stateWitness = self.stateWitness.lock().unwrap();
                                         let mut mempool = self.mempool.lock().unwrap();
                                         // CODE REVERSE WHEN A FORK APPEARS
+                                        /*
                                         if stateSet.Set.contains_key(&tip_hash) {
                                             // let new_state = stateSet.Set.get(&tip_hash).unwrap().Outputs;
                                             state.Outputs.clear();
                                             for (key, value) in stateSet.Set.get(&tip_hash).unwrap().Outputs.clone() {
                                                 state.Outputs.insert(key, value);
                                             }
-                                        }
+                                        } */
                                         // Update State
-                                        state.updateState(&contents);
+                                        //state.updateState(&contents);
                                         // CODE STATE SET UPDATE
-                                        stateSet.Set.insert(block.hash(), state.clone());
+                                        //stateSet.Set.insert(block.hash(), state.clone());
                                         // Update Mempool
                                         mempool.updateMempool(&contents);
-                                        for key in state.Outputs.keys() {
+                                        /*for key in state.Outputs.keys() {
                                             println!("WORKER: RECP: {:?}, VALUE {:?} BTC", state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
+                                        }*/
+                                        if self.ifArchival { //TODO
+                                            //update state, state witnesses and broadcast state witnesses with balance
                                         }
-                                        //let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
-                                        //let mut delay_u128 = now - block.gettimestamp();
-                                        //let delay = delay_u128 as f32;
-                                        // sum_delay += delay;
-                                        // num_delay += 1;
-                                        //println!("WORKER DELAY: {:?}", delay);
-                                        // println!("sum_delay: {:?}", sum_delay);
-                                        // println!("num_delay: {:?}", num_delay);
+
                                         newlyProcessedBlockHashes.push(block.hash());
-                                        std::mem::drop(state);
+                                        //std::mem::drop(state);
                                         std::mem::drop(mempool);
                                     }
 
@@ -276,7 +276,7 @@ impl Context {
                             let orphans = orphanbuffer.getOrphanBlocks(&newlyProcessedBlockHashes[idx]);
                             for orphan in orphans{
                                 let mut contents = orphan.Content.content.clone();
-                                let mut state = self.state.lock().unwrap(); //TODO
+                                //let mut state = self.state.lock().unwrap(); //TODO
                                 let mut mempool = self.mempool.lock().unwrap();
                                 let mut check = true;
                                 for content in contents.iter(){
@@ -292,22 +292,17 @@ impl Context {
                                 std::mem::drop(mempool);
                                 if check {
                                     blockchain.insert(&orphan);
-                                    let mut state = self.state.lock().unwrap();
+                                    //let mut state = self.state.lock().unwrap();
                                     let mut mempool = self.mempool.lock().unwrap();
                                     //info!("WORKER: BLOCKS RECEIVED");
                                     // info!("Worker: Blocks mined by one can be received by the other.");
                                     // Update State
-                                    state.updateState(&contents); //TODO
+                                    //state.updateState(&contents); //TODO
                                     //Update Mempool
                                     mempool.updateMempool(&contents);
 
                                     info!("WORKER: ORPHAN BLOCKS RECEIVED");
-                                    //let mut now = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
-                                    //let mut delay_u128 = now - orphan.gettimestamp();
-                                    //let delay = delay_u128 as f32;
-                                    //println!("WORKER DELAY: {:?}", delay);
-                                    //newlyProcessedBlockHashes.push(orphan.hash());
-                                    std::mem::drop(state);
+                                    //std::mem::drop(state);
                                     std::mem::drop(mempool);
                                 }
 
@@ -389,6 +384,13 @@ impl Context {
                         self.server.broadcast(Message::NewTransactionHashes(addedTransactionHashes));
                     }
                     //println!("updated mempool: {:?}",mempool.Transactions);
+                }
+
+                Message::NewWitnesses(Witnesses) => {
+                    if !self.ifArchival {
+                        //store new witnesses
+                        let mut stateWitness = self.stateWitness.lock().unwrap();
+                    }
                 }
 
             }

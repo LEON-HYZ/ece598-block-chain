@@ -14,7 +14,7 @@ pub enum Message {
     NewTransactionHashes(Vec<H256>),
     GetTransactions(Vec<H256>),
     Transactions(Vec<SignedTransaction>),
-    //TODO:Double Spend Check
     //TODO:Update State Witness, Balance
+    NewWitnesses(Vec<Witness>),
 }
 

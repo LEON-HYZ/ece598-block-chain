@@ -92,7 +92,7 @@ fn main() {
     let local_public_key = key_pair.public_key().as_ref().to_vec();
     let local_address = <H160>::from(<H256>::from(digest::digest(&digest::SHA256, &local_public_key[..])));
     let local_addr_u8: [u8; 20] = <[u8; 20]>::from(local_address);
-    println!("generate: {:?}",local_address);
+    println!("NODE ADDRESS GENERATED: {:?}",local_address);
         //create new blockchain
     let mut new_blockchain = blockchain::Blockchain::new();
     let blockchain = Arc::new(Mutex::new(new_blockchain));
@@ -100,15 +100,23 @@ fn main() {
     let orphanbuffer = Arc::new(Mutex::new(new_orphanbuffer));
     let mut new_Mempool = transaction::Mempool::new();
     let mempool = Arc::new(Mutex::new(new_Mempool));
-    let mut new_State = transaction::State::new();
-    let state = Arc::new(Mutex::new(new_State));
-    let mut new_StateSet = transaction::StateSet::new();
-    let stateSet = Arc::new(Mutex::new(new_StateSet));
+    let mut new_StateWitness = transaction::StateWitness::new();
+    let stateWitness = Arc::new(Mutex::new(new_StateWitness));
+    //let mut new_StateSet = transaction::StateSet::new();
+    //let stateSet = Arc::new(Mutex::new(new_StateSet));
     //TODO: Add ICO
     // let new_file = std::fs::File::create("ICO.txt").expect("create failed");
     let new_file = OpenOptions::new().write(true).create_new(true).open("ICO.txt");
     let mut file = OpenOptions::new().append(true).open("ICO.txt").expect("cannot open file");
     file.write_all(&local_addr_u8).expect("write failed");
+
+    let mut ifArchival = false;
+    let data = fs::read("ICO.txt").expect("Unable to read file");
+    let data_len: usize = (data.len() / 20) as usize;
+    //println!("data_length: {:?}", data.len());
+    if data_len == 4 {
+        ifArchival = true;
+    }
     // file.write_all("/n".as_bytes()).expect("write failed");
     // let mut new_sum_delay:f32 = 0.0;
     // let sum_delay = Arc::new(Mutex::new(new_sum_delay));
@@ -124,23 +132,26 @@ fn main() {
         &blockchain,
         &orphanbuffer,
         &mempool,
-        &state,
-        &stateSet,
+        &stateWitness,
+        //&stateSet,
         &local_address,
         p2p_workers,
         msg_rx,
         &server,
+        ifArchival,
     );
     worker_ctx.start();
 
-    //start the transaction
+    //start the transaction generator
     let (transaction_ctx, transaction) = transaction::new(
         &server,
         &mempool,
-        &state,
-        &stateSet,
+        &stateWitness,
+        &blockchain,
+        //&stateSet,
         key_pair,
         &local_address,
+        ifArchival,
     );
     transaction_ctx.start();
 
@@ -149,11 +160,12 @@ fn main() {
     let (miner_ctx, miner) = miner::new(
         &server,
         &mempool,
-        &state,
-        &stateSet,
+        &stateWitness,
+        //&stateSet,
         &blockchain,
         &local_public_key[..],
         &local_address,
+        ifArchival,
     );
     miner_ctx.start();
 
