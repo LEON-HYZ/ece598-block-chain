@@ -398,7 +398,8 @@ impl Context {
                                 stateWitness.States.remove(newStateKey);
                                 stateWitness.States.insert(*newStateKey,*newState.get(newStateKey));
                             }
-                            else {
+                                //only add relevant states to local states
+                            else if stateWitness.States.get(newStateKey).unwrap().1 == self.local_address{
                                 stateWitness.States.insert(*newStateKey,*newState.get(newStateKey));
                             }
                         }
