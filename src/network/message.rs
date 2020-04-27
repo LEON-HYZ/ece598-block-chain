@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
 use crate::block::Block;
 use crate::crypto::hash::{H256,Hashable};
-use crate::transaction::{Transaction, SignedTransaction};
+use crate::transaction::{Transaction, SignedTransaction,StateWitness};
 
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -14,7 +14,7 @@ pub enum Message {
     NewTransactionHashes(Vec<H256>),
     GetTransactions(Vec<H256>),
     Transactions(Vec<SignedTransaction>),
-    //TODO:Update State Witness, Balance
-    NewWitnesses(Vec<Witness>),
+    //TODO:Update State Witness, Accumulator Proof
+    NewStateWitness(StateWitness),
 }
 

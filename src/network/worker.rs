@@ -205,7 +205,7 @@ impl Context {
 
                                     for content in contents.iter(){
                                         //println!("verify: {:?}, double: {:?}",content.verifySignedTransaction() , state.ifNotDoubleSpent(content));
-                                        if stateWitness.ifNotDoubleSpent(block.getparent(), Accumulator) && content.verifySignedTransaction() { //TODO ACCUMULATOR
+                                        if stateWitness.ifNotDoubleSpent(&content.transaction.Input, &block.getparent()) && content.verifySignedTransaction() { //TODO BATCH VERIFICATION
                                             check = check && true;
                                         }
                                         else{
@@ -214,7 +214,7 @@ impl Context {
                                         }
                                     }
 
-                                    std::mem::drop(state);
+                                    std::mem::drop(stateWitness);
                                     std::mem::drop(mempool);
 
                                     if check{
@@ -223,7 +223,7 @@ impl Context {
                                         info!("WORKER: BLOCKS RECEIVED FROM THE OTHER SENDER");
                                         println!("WORKER: CURRENT BLOCKCHAIN HEIGHT: {:?}", blockchain.tip.1);
                                         // info!("Worker: Blocks mined by one can be received by the other.");
-                                        let mut stateWitness = self.stateWitness.lock().unwrap();
+                                        //let mut stateWitness = self.stateWitness.lock().unwrap();
                                         let mut mempool = self.mempool.lock().unwrap();
                                         // CODE REVERSE WHEN A FORK APPEARS
                                         /*
@@ -244,7 +244,7 @@ impl Context {
                                             println!("WORKER: RECP: {:?}, VALUE {:?} BTC", state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
                                         }*/
                                         if self.ifArchival { //TODO
-                                            //update state, state witnesses and broadcast state witnesses with balance
+                                            //update state witnesses and broadcast state witnesses with accumulator proof
                                         }
 
                                         newlyProcessedBlockHashes.push(block.hash());
@@ -277,10 +277,11 @@ impl Context {
                             for orphan in orphans{
                                 let mut contents = orphan.Content.content.clone();
                                 //let mut state = self.state.lock().unwrap(); //TODO
+                                let mut stateWitness = self.stateWitness.lock().unwrap();
                                 let mut mempool = self.mempool.lock().unwrap();
                                 let mut check = true;
                                 for content in contents.iter(){
-                                    if state.ifNotDoubleSpent(content) && content.verifySignedTransaction() { //TODO
+                                    if stateWitness.ifNotDoubleSpent(&content.transaction.Input, &orphan.getparent()) && content.verifySignedTransaction() { //TODO
                                         check = check && true;
                                     }
                                     else{
@@ -361,7 +362,7 @@ impl Context {
                     //info!("WORKER: ADDING NEW TRANSACTIONS");
                     //println!("Transactions: {:?}",Transactions);
                     let mut mempool = self.mempool.lock().unwrap();
-                    let mut state = self.state.lock().unwrap();
+                    let mut stateWitness = self.stateWitness.lock().unwrap();
                     let mut Transactions = Transactions.clone();
                     let mut addedTransactionHashes = Vec::<H256>::new();
 
@@ -370,7 +371,7 @@ impl Context {
                             //Transaction signature check
                             //info!("checking");
                             //println!("verify: {:?}, double: {:?}",Transaction.verifySignedTransaction() , state.ifNotDoubleSpent(Transaction));
-                            if Transaction.verifySignedTransaction() && state.ifNotDoubleSpent(Transaction) {
+                            if Transaction.verifySignedTransaction() && stateWitness.ifNotDoubleSpent(&Transaction.transaction.Input, &self.blockchain.lock().unwrap().tip.0) {
                                 //info!("added");
                                 info!("WORKER: NEW TRANSACTIONS ADDED!");
                                 mempool.insert(Transaction);
@@ -379,18 +380,36 @@ impl Context {
                         }
                     }
                     std::mem::drop(mempool);
-                    std::mem::drop(state);
+                    std::mem::drop(stateWitness);
                     if addedTransactionHashes.capacity() > 0 {
                         self.server.broadcast(Message::NewTransactionHashes(addedTransactionHashes));
                     }
                     //println!("updated mempool: {:?}",mempool.Transactions);
                 }
 
-                Message::NewWitnesses(Witnesses) => {
+                Message::NewStateWitness(newStateWitness) => {
                     if !self.ifArchival {
-                        //store new witnesses
                         let mut stateWitness = self.stateWitness.lock().unwrap();
+                        //add new states and update old states
+                        //Might have "move" problems, to be solved later
+                        let mut newState = newStateWitness.States;
+                        for newStateKey in newState.keys(){
+                            if stateWitness.States.contains_key(newStateKey) {
+                                stateWitness.States.remove(newStateKey);
+                                stateWitness.States.insert(*newStateKey,*newState.get(newStateKey));
+                            }
+                            else {
+                                stateWitness.States.insert(*newStateKey,*newState.get(newStateKey));
+                            }
+                        }
+                        let mut newAccumulator  = newStateWitness.Accumulator;
+                        for Block_Hash in newAccumulator.keys(){
+                            if !stateWitness.Accumulator.contains_key(Block_Hash){
+                                stateWitness.Accumulator.insert(*Block_Hash,*newAccumulator.get(Block_Hash));
+                            }
+                        }
                     }
+                    std::mem::drop(stateWitness);
                 }
 
             }
