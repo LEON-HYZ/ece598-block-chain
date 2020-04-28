@@ -1,7 +1,7 @@
 #[macro_use]
 extern crate hex_literal;
 use crate::crypto::hash::{H256,Hashable};
-use crate::transaction::{Transaction,SignedTransaction};
+use crate::transaction::{Transaction, SignedTransaction, StateWitness};
 use std::collections::{HashMap, HashSet};
 use rand::{thread_rng, Rng};
 use modpow::modpow;
@@ -53,7 +53,8 @@ pub fn genprime(j: u32, low: u32, high:u32) -> u32 {
 }
 
 pub struct Accumulator {
-	pub hash_to_prime : HashMap<(H256, u32), u32>,
+	//pub hash_to_prime : HashMap<(H256, u32), u32>,//statewitness
+	pub stateWitness: StateWitness,
 	pub prime_set : HashSet<u32>,
 	pub n: u32,
 	pub g: u32,
@@ -62,7 +63,8 @@ pub struct Accumulator {
 impl Accumulator {
 
 	pub fn new() -> Self {
-		let mut hashmap: HashMap<(H256, u32), u32> = HashMap::new();
+		//let mut hashmap: HashMap<(H256, u32), u32> = HashMap::new();
+		let mut stateWitness = StateWitness::new();
 		let mut prime_set = HashSet::new();
 		let mut rng = thread_rng();
 		let mut j:u32 = rng.gen_range(3, 7);
@@ -70,7 +72,8 @@ impl Accumulator {
 	    let q = genprime(j, 10u32.pow(j-1), 10u32.pow(j)-1);
 	    let _n = p*q;
 	    let _g = genprime(j, 10u32.pow(j-1), 10u32.pow(j)-1);
-		return Accumulator{hash_to_prime: hashmap, prime_set: prime_set,  n: _n, g: _g,}
+		//ICO
+		return Accumulator{stateWitness: stateWitness, prime_set: prime_set,  n: _n, g: _g,}
 	}
 
 	

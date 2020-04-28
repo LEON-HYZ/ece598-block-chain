@@ -493,13 +493,13 @@ A = g^(a_1*a_2*...*a_6)
 pub struct StateWitness {
     //States with Witness
     pub States: HashMap<(H256, u32),(f32, H160, u128, u128)>, //  (prev TX Hash, prev Output Index) <-> (Output Value, Recipient Addr, Prime_number, Witness)
-    pub Accumulator: HashMap<H256,u128>, // Block Hash <-> Accumulator
+    pub AccumulatorProof: HashMap<H256,u128>, // Block Hash <-> Accumulator
 }
 impl StateWitness {
     pub fn new() -> Self{
         let states:HashMap<(H256, u32),(f32, H160, u128, u128)> = HashMap::new();
-        let accumulator:HashMap<H256, u128> = HashMap::new();
-        return State{States: states, Accumulator: accumulator}
+        let accumulator_proof:HashMap<H256, u128> = HashMap::new();
+        return State{States: states, AccumulatorProof: accumulator_proof}
     }
 
 
