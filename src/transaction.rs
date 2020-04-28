@@ -325,14 +325,30 @@ impl Context {
             if self.ifArchival && !ICO {
                 let mut stateWitness = self.stateWitness.lock().unwrap();
                 let mut accumulator = self.accumulator.lock().unwrap();
-
+                let mut statePrimeWitness = Vec::<(H256,u32,u32)>::new();
                 //Add states to accumulator
+                for i in 0..3 {
+                    let rand_u8:u8 = rand::thread_rng().gen();
+                    let hash = <H256>::from(digest::digest(&digest::SHA256, &[rand_u8]));
+                    accumulator.hash_to_prime(hash, 0);
+                }
 
                 //Calculate accumulator proof and Add it to Accumulator Proof
-
+                let A = accumulator.accumulate();
+                for (hash, prime) in accumulator.accumulator.iter() {
+                    let witness = A / ((accumulator.g).pow(prime));
+                    statePrimeWitness.push((hash.0,  *prime, witness));
+                }
+                stateWitness.AccumulatorProof.insert(self.blockchain.lock().unwrap().tip.0,A);
                 //Calculate witnesses and Add states with witnesses to stateWitness
-                //for address in all_adress.iter()
+                //for address in all_address.iter()
                 //stateWitness.States.insert((<H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8])), i as u32), (100.0 as f32, address, prime_number, witness));
+
+                for i in 0..all_address.len() {
+                    stateWitness.addStates(statePrimeWitness[i].0, 0 as u32,100.0 as f32, all_address[i], statePrimeWitness[i].1, statePrimeWitness[i].2);
+                }
+
+                Message::NewStateWitness(stateWitness.clone());
 
                 //Broadcast the witnesses
 
