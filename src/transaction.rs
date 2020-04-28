@@ -331,6 +331,8 @@ impl Context {
                 //Calculate accumulator proof and Add it to Accumulator Proof
 
                 //Calculate witnesses and Add states with witnesses to stateWitness
+                //for address in all_adress.iter()
+                //stateWitness.States.insert((<H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8])), i as u32), (100.0 as f32, address, prime_number, witness));
 
                 //Broadcast the witnesses
 
