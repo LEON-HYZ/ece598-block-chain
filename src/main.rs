@@ -9,6 +9,7 @@ pub mod crypto;
 pub mod miner;
 pub mod network;
 pub mod transaction;
+pub mod accumulator;
 
 use clap::clap_app;
 use crossbeam::channel;
