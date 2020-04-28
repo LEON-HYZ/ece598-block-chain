@@ -3,6 +3,7 @@ use ring::signature::{Ed25519KeyPair, Signature, KeyPair, VerificationAlgorithm,
 use crate::crypto::hash::{H256, Hashable, H160, Hashable_160};
 use crate::network::message::{Message};
 use crate::network::server::Handle as ServerHandle;
+use crate::accumulator::Accumulator;
 use std::sync::{Arc, Mutex};
 use std::collections::{HashMap, HashSet};
 use ring::{digest};
@@ -29,8 +30,8 @@ use crate::blockchain::Blockchain;
 //Update: add witness to txs
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Copy)]
 pub struct witness {
-    pub prime_number: u128,
-    pub witness: u128,
+    pub prime_number: u32,
+    pub witness: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Copy)]
@@ -172,6 +173,7 @@ pub struct Context {
     control_chan: Receiver<ControlSignal>,
     operating_state: OperatingState,
     server: ServerHandle,
+    accumulator:Arc<Mutex<Accumulator>>,
     ifArchival: ifArchival,
 
 }
@@ -190,6 +192,7 @@ pub fn new(
     //stateSet: &Arc<Mutex<StateSet>>,
     key_pair: Ed25519KeyPair,
     local_address: &H160,
+    accumulator: &Arc<Mutex<Accumulator>>,
     ifArchival: bool,
 ) -> (Context, Handle) {
     let (signal_chan_sender, signal_chan_receiver) = unbounded();
@@ -204,6 +207,7 @@ pub fn new(
         control_chan: signal_chan_receiver,
         operating_state: OperatingState::Paused,
         server: server.clone(),
+        accumulator: Arc::clone(accumulator),
         ifArchival: *ifArchival,
     };
 
@@ -254,10 +258,12 @@ impl Context {
     fn transaction_loop(&mut self) {
         let mut tx_counter: i32 = 0;
         let mut readADD: bool = false;
+        let mut ICO: bool = false;
         let mut archival_address= Vec::<H160>::new();
         let mut other_address = Vec::<H160>::new();
         let mut all_address = Vec::<H160>::new();
-        let mut hashset = HashSet::<(H256,u32)>::new();
+        let mut tx_set = HashSet::<(H256,u32)>::new();
+
         // main mining loop
         loop {
 
@@ -315,13 +321,32 @@ impl Context {
                     println!("TXG: THERE IS A TRANSACTION GENERATOR ON PROCESS: {:?},", self.local_address);
                 }
             }
+            //TODO ICO for Archival node
+            if self.ifArchival && !ICO {
+                let mut stateWitness = self.stateWitness.lock().unwrap();
+                let mut accumulator = self.accumulator.lock().unwrap();
+
+                //Add states to accumulator
+
+                //Calculate accumulator proof and Add it to Accumulator Proof
+
+                //Calculate witnesses and Add states with witnesses to stateWitness
+
+                //Broadcast the witnesses
+
+                if stateWitness.capacity() > 0{
+                    ICO = true;
+                    std::mem::drop(stateWitness);
+                    std::mem::drop(accumulator);
+                }
+            }
 
 
             //OLD check if valid in state
             //OLD read states to obtain ledger: balance, ready to generate txs
             //NEW TODO: Check State Witnesses and Update Balance
             let mut stateWitness = self.stateWitness.lock().unwrap();
-            let mut myStateWitness = Vec::<(H256, u32, u128, u128)>::new();
+            let mut myStateWitness = Vec::<(H256, u32, u32, u32)>::new();
             let mut all_value = 0 as f32;
             if stateWitness.States.keys().len() > 0 {
                 for state in stateWitness.States.keys() {
@@ -337,7 +362,7 @@ impl Context {
                     }
                 }
             }
-            std::mem::drop(stateWitness)
+            std::mem::drop(stateWitness);
             //std::mem::drop(state);
 
             if myStateWitness.capacity() > 0 {
@@ -396,7 +421,7 @@ impl Context {
                     let mut stateWitness = self.stateWitness.lock().unwrap();
                     let mut valid = true;
                     for input in transaction.Input.clone() {
-                        if hashset.contains(&(input.prevTransaction,input.preOutputIndex)){
+                        if tx_set.contains(&(input.prevTransaction,input.preOutputIndex)){
                             valid = false;
                         }
                     }
@@ -408,7 +433,7 @@ impl Context {
                         && valid{
                         mempool.insert(&SignedTransaction);
                         for input in transaction.Input.clone() {
-                            hashset.insert((input.prevTransaction,input.preOutputIndex));
+                            tx_set.insert((input.prevTransaction,input.preOutputIndex));
                         }
                         tx_counter = tx_counter + 1;
                         //println!("{:?}",tx_counter);
@@ -492,13 +517,13 @@ A = g^(a_1*a_2*...*a_6)
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct StateWitness {
     //States with Witness
-    pub States: HashMap<(H256, u32),(f32, H160, u128, u128)>, //  (prev TX Hash, prev Output Index) <-> (Output Value, Recipient Addr, Prime_number, Witness)
-    pub AccumulatorProof: HashMap<H256,u128>, // Block Hash <-> Accumulator
+    pub States: HashMap<(H256, u32),(f32, H160, u32, u32)>, //  (prev TX Hash, prev Output Index) <-> (Output Value, Recipient Addr, Prime_number, Witness)
+    pub AccumulatorProof: HashMap<H256,u32>, // Block Hash <-> Accumulator
 }
 impl StateWitness {
     pub fn new() -> Self{
-        let states:HashMap<(H256, u32),(f32, H160, u128, u128)> = HashMap::new();
-        let accumulator_proof:HashMap<H256, u128> = HashMap::new();
+        let states:HashMap<(H256, u32),(f32, H160, u32, u32)> = HashMap::new();
+        let accumulator_proof:HashMap<H256, u32> = HashMap::new();
         return State{States: states, AccumulatorProof: accumulator_proof}
     }
 
@@ -511,9 +536,9 @@ impl StateWitness {
         for input in Input.clone() {
             let prime_number = input.witness.prime_number;
             let witness = input.witness.witness;
-            if self.Accumulator.contains_key(&Block_Hash){
-                let Accumulator = self.Accumulator.get(&Block_Hash).unwrap();
-                if *Accumulator == pow(witness,prime_number) {
+            if self.AccumulatorProof.contains_key(&Block_Hash){
+                let AccumulatorProof = self.AccumulatorProof.get(&Block_Hash).unwrap();
+                if *AccumulatorProof == pow(witness,prime_number) {
                     is_not_double_spent = is_not_double_spent && true;
                 }
                 else{
@@ -526,7 +551,7 @@ impl StateWitness {
     }
     // CODE FOR ADDING STATES
     // ENTER TX HASH, OUTPUT INDEX, OUTPUT VALUE, RECP ADDR, PRIME NUMBER, WITNESS
-    pub fn addStates(&mut self, transaction_hash: H256, output_index: u32, output_value: f32, recp_address: H160, prime_number: u128, witness: u128) {
+    pub fn addStates(&mut self, transaction_hash: H256, output_index: u32, output_value: f32, recp_address: H160, prime_number: u32, witness: u32) {
         if !self.States.contains_key(&(transaction_hash,output_index)){
             self.States.insert((transaction_hash,output_index),(output_value,recp_address,prime_number,witness));
         }
@@ -538,9 +563,9 @@ impl StateWitness {
         }
     }
     // ENTER BLOCK HASH, ACCUMULATOR
-    pub fn updateAccumulator(&mut self, Block_Hash: H256, Accumulator: u128) {
-        if !self.Accumulator.contains_key(&(Block_Hash)){
-            self.Accumulator.insert(Block_Hash, Accumulator);
+    pub fn updateAccumulator(&mut self, Block_Hash: H256, AccumulatorProof: u32) {
+        if !self.AccumulatorProof.contains_key(&(Block_Hash)){
+            self.AccumulatorProof.insert(Block_Hash, AccumulatorProof);
         }
     }
 
@@ -560,11 +585,10 @@ pub fn generate_random_signed_transaction_() -> SignedTransaction {
     let mut rand_u32_vec = [rand_u32].to_vec();
     let mut rand_f32:f32 = rand::thread_rng().gen();
     let mut rand_f32_vec = [rand_f32].to_vec();
-    let mut rand_u128:u128 = rand::thread_rng().gen();
-    let mut witness = witness{prime_number:rand_u128, witness: rand_u128,};
+    let mut witness = witness{prime_number:rand_u32, witness: rand_u32,};
     let mut witness_vec = [witness].to_vec();
 
-    let mut transaction = generate_transaction(&new_hash_vec,&rand_u32_vec, witness: &witness_vec,&rand_f32_vec,&rand_addr);
+    let mut transaction = generate_transaction(&new_hash_vec,&rand_u32_vec, witness_vec: &witness_vec,&rand_f32_vec,&rand_addr);
     let key = key_pair::random();
     let signature = sign(&transaction,&key);
     let SignedTransaction = SignedTransaction::new(&transaction,&signature,&key.public_key());

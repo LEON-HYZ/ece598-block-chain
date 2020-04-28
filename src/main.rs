@@ -103,6 +103,8 @@ fn main() {
     let mempool = Arc::new(Mutex::new(new_Mempool));
     let mut new_StateWitness = transaction::StateWitness::new();
     let stateWitness = Arc::new(Mutex::new(new_StateWitness));
+    let mut new_Accumulator = accumulator::Accumulator::new();
+    let accumulator = Arc::new(Nutex::new(new_Accumulator));
     //let mut new_StateSet = transaction::StateSet::new();
     //let stateSet = Arc::new(Mutex::new(new_StateSet));
     //TODO: Add ICO
@@ -139,6 +141,7 @@ fn main() {
         p2p_workers,
         msg_rx,
         &server,
+        &accumulator,
         ifArchival,
     );
     worker_ctx.start();
@@ -152,6 +155,7 @@ fn main() {
         //&stateSet,
         key_pair,
         &local_address,
+        &accumulator,
         ifArchival,
     );
     transaction_ctx.start();

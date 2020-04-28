@@ -53,8 +53,7 @@ pub fn genprime(j: u32, low: u32, high:u32) -> u32 {
 }
 
 pub struct Accumulator {
-	//pub hash_to_prime : HashMap<(H256, u32), u32>,//statewitness
-	pub stateWitness: StateWitness,
+	pub accumulator: HashMap<(H256,u32),(u32)>,// prev TX Hash, prev Output Index <-> prime number
 	pub prime_set : HashSet<u32>,
 	pub n: u32,
 	pub g: u32,
@@ -63,9 +62,8 @@ pub struct Accumulator {
 impl Accumulator {
 
 	pub fn new() -> Self {
-		//let mut hashmap: HashMap<(H256, u32), u32> = HashMap::new();
-		let mut stateWitness = StateWitness::new();
-		let mut prime_set = HashSet::new();
+		let accumulator = HashMap::<(H256,u32),(u32)>::new();
+		let mut prime_set = HashSet::<u32>::new();
 		let mut rng = thread_rng();
 		let mut j:u32 = rng.gen_range(3, 7);
 	    let p = genprime(j, 10u32.pow(j-1), 10u32.pow(j)-1);
@@ -73,7 +71,7 @@ impl Accumulator {
 	    let _n = p*q;
 	    let _g = genprime(j, 10u32.pow(j-1), 10u32.pow(j)-1);
 		//ICO
-		return Accumulator{stateWitness: stateWitness, prime_set: prime_set,  n: _n, g: _g,}
+		return Accumulator{accumulator: accumulator, prime_set: prime_set,  n: _n, g: _g,}
 	}
 
 	

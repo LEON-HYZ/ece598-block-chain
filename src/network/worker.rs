@@ -10,6 +10,7 @@ use crate::blockchain::Blockchain;
 use crate::block::{Block,Header,Content};
 use crate::crypto::merkle::{MerkleTree};
 use crate::transaction::{Mempool, StateWitness, StateSet, SignedTransaction};
+use crate::accumulator::Accumulator;
 use ring::signature::{Ed25519KeyPair, Signature, KeyPair, VerificationAlgorithm, EdDSAParameters};
 
 use std::collections::HashMap;
@@ -75,6 +76,7 @@ pub struct Context {
     msg_chan: channel::Receiver<(Vec<u8>, peer::Handle)>,
     num_worker: usize,
     server: ServerHandle,
+    accumulator: Arc<Mutex<Accumlator>>,
     ifArchival: bool,
 }
 
@@ -88,6 +90,7 @@ pub fn new(
     num_worker: usize,
     msg_src: channel::Receiver<(Vec<u8>, peer::Handle)>,
     server: &ServerHandle,
+    accumulator:&accumulator,
     ifArchival: bool
 ) -> Context {
     Context {
@@ -102,6 +105,7 @@ pub fn new(
         msg_chan: msg_src,
         num_worker,
         server: server.clone(),
+        accumulator: Arc::clone(accumulator)
         ifArchival: *ifArchival,
     }
 }
