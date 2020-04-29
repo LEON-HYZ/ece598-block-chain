@@ -315,7 +315,7 @@ impl Context {
                     }
                 }
                 archival_address.push(all_address[-1]); // the last one is archival address
-
+                all_address.remove(-1);
                 readADD = true;
                 if(self.local_address != archival_address[0]) {
                     println!("TXG: THERE IS A TRANSACTION GENERATOR ON PROCESS: {:?},", self.local_address);
@@ -327,7 +327,7 @@ impl Context {
                 let mut accumulator = self.accumulator.lock().unwrap();
                 let mut statePrimeWitness = Vec::<(H256,u32,u32)>::new();
                 //Add states to accumulator
-                for i in 0..3 {
+                for i in 0..all_address.len() {
                     let rand_u8:u8 = rand::thread_rng().gen();
                     let hash = <H256>::from(digest::digest(&digest::SHA256, &[rand_u8]));
                     accumulator.hash_to_prime(hash, 0);
@@ -351,39 +351,40 @@ impl Context {
                 Message::NewStateWitness(stateWitness.clone());
 
                 //Broadcast the witnesses
-
+                std::mem::drop(stateWitness);
+                std::mem::drop(accumulator);
                 if stateWitness.capacity() > 0{
                     ICO = true;
-                    std::mem::drop(stateWitness);
-                    std::mem::drop(accumulator);
                 }
             }
 
 
             //OLD check if valid in state
             //OLD read states to obtain ledger: balance, ready to generate txs
-            //NEW TODO: Check State Witnesses and Update Balance
-            let mut stateWitness = self.stateWitness.lock().unwrap();
-            let mut myStateWitness = Vec::<(H256, u32, u32, u32)>::new();
-            let mut all_value = 0 as f32;
-            if stateWitness.States.keys().len() > 0 {
-                for state in stateWitness.States.keys() {
-                    //state check to avoid double spent
-                    //State with witness: (prev TX Hash, prev Output Index) <-> (Output Value, Recipient Addr, Prime_number, Witness)
-                    if stateWitness.States.get(State).unwrap().1 == self.local_address {
-                        let tx_hash = state.0;
-                        let output_index = state.1;
-                        let prime = stateWitness.States.get(State).unwrap().2;
-                        let witness = stateWitness.States.get(State).unwrap().3;
-                        myStateWitness.push((tx_hash, output_index, prime, witness));
-                        all_value = all_value + stateWitness.States.get(State).unwrap().0; //account balance
+            //NEW TODO: Check State Witnesses and Update Balance FULL NODE
+            if !self.ifArchival{
+                let mut stateWitness = self.stateWitness.lock().unwrap();
+                let mut myStateWitness = Vec::<(H256, u32, u32, u32)>::new();
+                let mut all_value = 0 as f32;
+                if stateWitness.States.keys().len() > 0 {
+                    for state in stateWitness.States.keys() {
+                        //state check to avoid double spent
+                        //State with witness: (prev TX Hash, prev Output Index) <-> (Output Value, Recipient Addr, Prime_number, Witness)
+                        if stateWitness.States.get(State).unwrap().1 == self.local_address {
+                            let tx_hash = state.0;
+                            let output_index = state.1;
+                            let prime = stateWitness.States.get(State).unwrap().2;
+                            let witness = stateWitness.States.get(State).unwrap().3;
+                            myStateWitness.push((tx_hash, output_index, prime, witness));
+                            all_value = all_value + stateWitness.States.get(State).unwrap().0; //account balance
+                        }
                     }
                 }
+                std::mem::drop(stateWitness);
             }
-            std::mem::drop(stateWitness);
-            //std::mem::drop(state);
 
-            if myStateWitness.capacity() > 0 {
+            // TODO GENERATING TXS FULL NODE
+            if !self.ifArchival && myStateWitness.capacity() > 0 {
                 //input
                 let mut pre_hash = Vec::<H256>::new();
                 let mut pre_index = Vec::<u32>::new();
