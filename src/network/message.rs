@@ -1,6 +1,6 @@
 use serde::{Serialize, Deserialize};
 use crate::block::Block;
-use crate::crypto::hash::{H256,Hashable};
+use crate::crypto::hash::{H256, Hashable, H160};
 use crate::transaction::{Transaction, SignedTransaction,StateWitness};
 
 
@@ -15,6 +15,6 @@ pub enum Message {
     GetTransactions(Vec<H256>),
     Transactions(Vec<SignedTransaction>),
     //TODO:Update State Witness, Accumulator Proof
-    NewStateWitness(StateWitness),
+    NewStateWitness(Vec<(H256, u32, f32, H160, u32, u32)>,Vec<(H256,u32)>),
 }
 

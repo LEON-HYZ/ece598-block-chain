@@ -1,6 +1,6 @@
 #[macro_use]
-extern crate hex_literal;
-use crate::crypto::hash::{H256,Hashable};
+use hex_literal;
+use crate::crypto::hash::{H256, Hashable, H160};
 use crate::transaction::{Transaction, SignedTransaction, StateWitness};
 use std::collections::{HashMap, HashSet};
 use rand::{thread_rng, Rng};
@@ -63,7 +63,7 @@ pub fn parameters() -> (u32, u32, u32) {
 }
 
 pub struct Accumulator {
-	pub accumulator: HashMap<(H256,u32),(u32)>,// prev TX Hash, prev Output Index <-> prime number
+	pub accumulator: HashMap<(H256,u32),(f32,H160,u32)>,// prev TX Hash, prev Output Index <-> Output Value, Recp Addr, Prime
 	pub prime_set : HashSet<u32>,
 	pub n: u32,
 	pub g: u32,
@@ -72,7 +72,7 @@ pub struct Accumulator {
 impl Accumulator {
 
 	pub fn new() -> Self {
-		let accumulator = HashMap::<(H256,u32),(u32)>::new();
+		let accumulator = HashMap::<(H256,u32),(f32,H160,u32)>::new(); //TX Hash, Output Index, Output Value, Recp Addr, Prime
 		let mut prime_set = HashSet::<u32>::new();
 		let (p, q, g) = parameters();
 	    let mut _n = p*q;
@@ -80,47 +80,47 @@ impl Accumulator {
 		return Accumulator{accumulator: accumulator, prime_set: prime_set,  n: _n, g: _g,}
 	}
 
-	pub fn hash_to_prime(&mut self, tx_hash: H256, output_index: u32){
+	pub fn hash_to_prime(&mut self, tx_hash: H256, output_index: u32,output_value:f32, recp_addr: H160 ){
 		let mut rng = thread_rng();
 		let mut j:u32 = rng.gen_range(3, 7);
 		let prime = genprime(j, 10u32.pow(j-1), 10u32.pow(j)-1);
 		if self.prime_set.contains(&prime){
-			self.hash_to_prime(tx_hash, output_index);
+			self.hash_to_prime(tx_hash, output_index, output_value,recp_addr);
 		}else{
 			self.prime_set.insert(prime);
-	    	self.accumulator.insert((tx_hash, output_index),prime);
+	    	self.accumulator.insert((tx_hash, output_index),(output_value,recp_addr, prime));
 		}
 
 	}
 
 	pub fn accumulate(&self) -> u32 {
 		let mut x = 1u32;
-	    for (_, val) in self.hash_to_prime.iter() {
-	        x = x*val;
+	    for (_, val) in self.accumulator.iter() {
+	        x = x*val.2;
 	    }
 	    let a = (self.g).overflowing_pow(x).0 ;
 	    let a = a%(self.n);
 	    println!("a is {:?}",a );
 		return a
 	}
-
+/*
 	pub fn update(&mut self, SignedTransactions: &Vec<SignedTransaction>){
 	    for signedTransaction in SignedTransactions {
 	        let mut hash = signedTransaction.transaction.hash();
 	        for input in signedTransaction.transaction.Input.clone() {
-	            if self.hash_to_prime.contains_key(&(input.prevTransaction, input.preOutputIndex)){
-	            	let p = self.hash_to_prime.get(&(input.prevTransaction, input.preOutputIndex)).unwrap();
-	                self.hash_to_prime.remove(&(input.prevTransaction, input.preOutputIndex));
-	                self.prime_vec.remove(p);
+	            if self.accumulator.contains_key(&(input.prevTransaction, input.preOutputIndex)){
+	            	let p = self.accumulator.get(&(input.prevTransaction, input.preOutputIndex)).unwrap();
+	                self.accumulator.remove(&(input.prevTransaction, input.preOutputIndex));
+	                self.prime_set.remove(&p.2);
 	            }
 	        }
 	        for output in signedTransaction.transaction.Output.clone() {
-	            self.hash_to_prime(hash,output.index);
+	            self.hash_to_prime(hash,output.index, output.value,output.recpAddress);
 	        }
         }
 		let (p_new, q_new, g_new) = parameters();
 		self.n = p_new * q_new;
 		self.g = g_new;
-    }
+    }*/
 }
 

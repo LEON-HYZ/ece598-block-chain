@@ -9,7 +9,7 @@ use crate::crypto::hash::{H256, Hashable, H160};
 use crate::blockchain::Blockchain;
 use crate::block::{Block,Header,Content};
 use crate::crypto::merkle::{MerkleTree};
-use crate::transaction::{Mempool, StateWitness, StateSet, SignedTransaction};
+use crate::transaction::{Mempool, StateWitness, SignedTransaction};
 use crate::accumulator::Accumulator;
 use ring::signature::{Ed25519KeyPair, Signature, KeyPair, VerificationAlgorithm, EdDSAParameters};
 
@@ -76,7 +76,7 @@ pub struct Context {
     msg_chan: channel::Receiver<(Vec<u8>, peer::Handle)>,
     num_worker: usize,
     server: ServerHandle,
-    accumulator: Arc<Mutex<Accumlator>>,
+    accumulator: Arc<Mutex<Accumulator>>,
     ifArchival: bool,
 }
 
@@ -90,7 +90,7 @@ pub fn new(
     num_worker: usize,
     msg_src: channel::Receiver<(Vec<u8>, peer::Handle)>,
     server: &ServerHandle,
-    accumulator:&accumulator,
+    accumulator:&Arc<Mutex<Accumulator>>,
     ifArchival: bool
 ) -> Context {
     Context {
@@ -105,8 +105,8 @@ pub fn new(
         msg_chan: msg_src,
         num_worker,
         server: server.clone(),
-        accumulator: Arc::clone(accumulator)
-        ifArchival: *ifArchival,
+        accumulator: Arc::clone(accumulator),
+        ifArchival: ifArchival,
     }
 }
 
@@ -196,7 +196,7 @@ impl Context {
                             //info!("WORKER: DIFFICULTY CHECK1 SUCCESS");
                             if block.Header.difficulty == difficulty{
                                 //info!("WORKER: DIFFICULTY CHECK2 SUCCESS");
-                                if !blockchain.Blocks.get(&block.getparent()).is_none(){
+                                if blockchain.Blocks.contains_key(&block.getparent()){
                                     //info!("WORKER: PARENT CHECK SUCCESS");
                                     //println!("block parent: {:?}", block.getparent());
                                     //println!("WORKER: PRESENT TIP {:?}", blockchain.tip.0);
@@ -209,10 +209,9 @@ impl Context {
 
                                     for content in contents.iter(){
                                         //println!("verify: {:?}, double: {:?}",content.verifySignedTransaction() , state.ifNotDoubleSpent(content));
-                                        if stateWitness.ifNotDoubleSpent(&content.transaction.Input, &block.getparent()) && content.verifySignedTransaction() { //TODO BATCH VERIFICATION
+                                        if stateWitness.ifNotDoubleSpent(&content.transaction.Input.clone(), &block.getparent()) && content.verifySignedTransaction() { //TODO BATCH VERIFICATION
                                             check = check && true;
-                                        }
-                                        else{
+                                        } else {
                                             check = check && false;
                                             break;
                                         }
@@ -229,31 +228,39 @@ impl Context {
                                         // info!("Worker: Blocks mined by one can be received by the other.");
                                         //let mut stateWitness = self.stateWitness.lock().unwrap();
                                         let mut mempool = self.mempool.lock().unwrap();
-                                        // CODE REVERSE WHEN A FORK APPEARS
-                                        /*
-                                        if stateSet.Set.contains_key(&tip_hash) {
-                                            // let new_state = stateSet.Set.get(&tip_hash).unwrap().Outputs;
-                                            state.Outputs.clear();
-                                            for (key, value) in stateSet.Set.get(&tip_hash).unwrap().Outputs.clone() {
-                                                state.Outputs.insert(key, value);
-                                            }
-                                        } */
-                                        // Update State
-                                        //state.updateState(&contents);
-                                        // CODE STATE SET UPDATE
-                                        //stateSet.Set.insert(block.hash(), state.clone());
-                                        // Update Mempool
                                         mempool.updateMempool(&contents);
+                                        std::mem::drop(mempool);
                                         /*for key in state.Outputs.keys() {
                                             println!("WORKER: RECP: {:?}, VALUE {:?} BTC", state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
                                         }*/
+                                        newlyProcessedBlockHashes.push(block.hash());
+
                                         if self.ifArchival { //TODO
                                             //update state witnesses and broadcast state witnesses with accumulator proof
-                                        }
+                                            let mut stateWitness = self.stateWitness.lock().unwrap();
+                                            let mut accumulator = self.accumulator.lock().unwrap();
+                                            for content in contents.iter(){
+                                                for input in content.transaction.Input.clone(){
+                                                    stateWitness.deleteStates(input.prevTransaction, input.preOutputIndex);
+                                                }
+                                                for output in content.transaction.Output.clone(){
+                                                    //Add states to accumulator
+                                                    accumulator.hash_to_prime(content.hash(), output.index, output.value,output.recpAddress);
+                                                }
+                                            }
+                                            //Calculate accumulator proof and Add it to Accumulator Proof
+                                            let A = accumulator.accumulate();
+                                            stateWitness.AccumulatorProof.insert(self.blockchain.lock().unwrap().tip.0,A);
+                                            //Calculate witnesses and Add states with witnesses to stateWitness
+                                            for (key, values) in accumulator.accumulator.iter() {
+                                                let witness = A / ((accumulator.g).pow(values.2));
+                                                stateWitness.addStates(key.0, key.1, values.0,values.1, values.2, witness );
+                                            }
+                                            Message::NewStateWitness(stateWitness.getAllStates(),stateWitness.getAllProof());
+                                            std::mem::drop(stateWitness);
+                                            std::mem::drop(accumulator);
 
-                                        newlyProcessedBlockHashes.push(block.hash());
-                                        //std::mem::drop(state);
-                                        std::mem::drop(mempool);
+                                        }
                                     }
 
 
@@ -280,7 +287,7 @@ impl Context {
                             let orphans = orphanbuffer.getOrphanBlocks(&newlyProcessedBlockHashes[idx]);
                             for orphan in orphans{
                                 let mut contents = orphan.Content.content.clone();
-                                //let mut state = self.state.lock().unwrap(); //TODO
+                                //TODO
                                 let mut stateWitness = self.stateWitness.lock().unwrap();
                                 let mut mempool = self.mempool.lock().unwrap();
                                 let mut check = true;
@@ -293,22 +300,44 @@ impl Context {
                                         break;
                                     }
                                 }
-                                std::mem::drop(state);
                                 std::mem::drop(mempool);
                                 if check {
                                     blockchain.insert(&orphan);
                                     //let mut state = self.state.lock().unwrap();
                                     let mut mempool = self.mempool.lock().unwrap();
-                                    //info!("WORKER: BLOCKS RECEIVED");
-                                    // info!("Worker: Blocks mined by one can be received by the other.");
-                                    // Update State
-                                    //state.updateState(&contents); //TODO
-                                    //Update Mempool
+
                                     mempool.updateMempool(&contents);
 
                                     info!("WORKER: ORPHAN BLOCKS RECEIVED");
                                     //std::mem::drop(state);
                                     std::mem::drop(mempool);
+
+                                    if self.ifArchival { //TODO
+                                        //update state witnesses and broadcast state witnesses with accumulator proof
+                                        let mut stateWitness = self.stateWitness.lock().unwrap();
+                                        let mut accumulator = self.accumulator.lock().unwrap();
+                                        for content in contents.iter(){
+                                            for input in content.transaction.Input.clone(){
+                                                stateWitness.deleteStates(input.prevTransaction, input.preOutputIndex);
+                                            }
+                                            for output in content.transaction.Output.clone(){
+                                                //Add states to accumulator
+                                                accumulator.hash_to_prime(content.hash(), output.index, output.value,output.recpAddress);
+                                            }
+                                        }
+                                        //Calculate accumulator proof and Add it to Accumulator Proof
+                                        let A = accumulator.accumulate();
+                                        stateWitness.AccumulatorProof.insert(self.blockchain.lock().unwrap().tip.0,A);
+                                        //Calculate witnesses and Add states with witnesses to stateWitness
+                                        for (key, values) in accumulator.accumulator.iter() {
+                                            let witness = A / ((accumulator.g).pow(values.2));
+                                            stateWitness.addStates(key.0, key.1, values.0,values.1, values.2, witness );
+                                        }
+                                        Message::NewStateWitness(stateWitness.getAllStates(),stateWitness.getAllProof());
+                                        std::mem::drop(stateWitness);
+                                        std::mem::drop(accumulator);
+
+                                    }
                                 }
 
 
@@ -391,30 +420,28 @@ impl Context {
                     //println!("updated mempool: {:?}",mempool.Transactions);
                 }
 
-                Message::NewStateWitness(newStateWitness) => {
+                Message::NewStateWitness( newState, newProof) => {
                     if !self.ifArchival {
                         let mut stateWitness = self.stateWitness.lock().unwrap();
                         //add new states and update old states
-                        //Might have "move" problems, to be solved later
-                        let mut newState = newStateWitness.States;
-                        for newStateKey in newState.keys(){
-                            if stateWitness.States.contains_key(newStateKey) {
-                                stateWitness.States.remove(newStateKey);
-                                stateWitness.States.insert(*newStateKey,*newState.get(newStateKey));
+                        for values in newState.iter(){
+                            if stateWitness.States.contains_key(&(values.0,values.1)) {
+                                stateWitness.deleteStates(values.0,values.1);
+                                stateWitness.addStates(values.0,values.1,values.2,values.3,values.4,values.5)
                             }
-                                //only add relevant states to local states
-                            else if stateWitness.States.get(newStateKey).unwrap().1 == self.local_address{
-                                stateWitness.States.insert(*newStateKey,*newState.get(newStateKey));
+                                //only add states to local states related to the local address
+                            else if stateWitness.States.get(&(values.0,values.1)).unwrap().1 == self.local_address{
+                                stateWitness.addStates(values.0,values.1,values.2,values.3,values.4,values.5)
                             }
                         }
-                        let mut newAccumulator  = newStateWitness.Accumulator;
-                        for Block_Hash in newAccumulator.keys(){
-                            if !stateWitness.Accumulator.contains_key(Block_Hash){
-                                stateWitness.Accumulator.insert(*Block_Hash,*newAccumulator.get(Block_Hash));
+                        for values in newProof.iter(){
+                            if !stateWitness.AccumulatorProof.contains_key(&values.0){
+                                stateWitness.AccumulatorProof.insert(values.0,values.1);
                             }
                         }
+                        std::mem::drop(stateWitness);
                     }
-                    std::mem::drop(stateWitness);
+
                 }
 
             }

@@ -23,7 +23,7 @@ use std::fs::File;
 use std::io::{BufReader, BufRead};
 use std::fs;
 use std::ops::Deref;
-use std::intrinsics::fabsf32;
+//use std::intrinsics::fabsf32;
 use crate::blockchain::Blockchain;
 //use std::intrinsics::prefetch_read_data;
 
@@ -48,7 +48,7 @@ pub struct output {
     pub index: u32,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Transaction {
     pub Input: Vec<input>,
     pub Output: Vec<output>,
@@ -62,7 +62,7 @@ impl Hashable for Transaction {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct SignedTransaction {
     pub transaction: Transaction,
     pub signature: Vec<u8>,
@@ -174,7 +174,7 @@ pub struct Context {
     operating_state: OperatingState,
     server: ServerHandle,
     accumulator:Arc<Mutex<Accumulator>>,
-    ifArchival: ifArchival,
+    ifArchival: bool,
 
 }
 
@@ -208,7 +208,7 @@ pub fn new(
         operating_state: OperatingState::Paused,
         server: server.clone(),
         accumulator: Arc::clone(accumulator),
-        ifArchival: *ifArchival,
+        ifArchival: ifArchival,
     };
 
     let handle = Handle {
@@ -311,11 +311,11 @@ impl Context {
                 //Record other tx addresses
                 for i in 0..(data_len-1) {
                     if !(all_address[i] == self.local_address) {
-                        other_address.push(address);
+                        other_address.push(all_address[i]);
                     }
                 }
-                archival_address.push(all_address[-1]); // the last one is archival address
-                all_address.remove(-1);
+                archival_address.push(all_address.pop().unwrap()); // the last one is archival address
+                //all_address.remove(-1);
                 readADD = true;
                 if(self.local_address != archival_address[0]) {
                     println!("TXG: THERE IS A TRANSACTION GENERATOR ON PROCESS: {:?},", self.local_address);
@@ -325,58 +325,52 @@ impl Context {
             if self.ifArchival && !ICO {
                 let mut stateWitness = self.stateWitness.lock().unwrap();
                 let mut accumulator = self.accumulator.lock().unwrap();
-                let mut statePrimeWitness = Vec::<(H256,u32,u32)>::new();
+                //let mut statePrimeWitness = Vec::<(H256,u32,u32)>::new();
                 //Add states to accumulator
                 for i in 0..all_address.len() {
                     let rand_u8:u8 = rand::thread_rng().gen();
                     let hash = <H256>::from(digest::digest(&digest::SHA256, &[rand_u8]));
-                    accumulator.hash_to_prime(hash, 0);
+                    accumulator.hash_to_prime(hash, 0, 100.0, all_address[i]);
                 }
 
                 //Calculate accumulator proof and Add it to Accumulator Proof
                 let A = accumulator.accumulate();
-                for (hash, prime) in accumulator.accumulator.iter() {
-                    let witness = A / ((accumulator.g).pow(prime));
-                    statePrimeWitness.push((hash.0,  *prime, witness));
-                }
                 stateWitness.AccumulatorProof.insert(self.blockchain.lock().unwrap().tip.0,A);
-                //Calculate witnesses and Add states with witnesses to stateWitness
-                //for address in all_address.iter()
-                //stateWitness.States.insert((<H256>::from(digest::digest(&digest::SHA256, &[0x00 as u8])), i as u32), (100.0 as f32, address, prime_number, witness));
 
-                for i in 0..all_address.len() {
-                    stateWitness.addStates(statePrimeWitness[i].0, 0 as u32,100.0 as f32, all_address[i], statePrimeWitness[i].1, statePrimeWitness[i].2);
+                for (key, values) in accumulator.accumulator.iter() {
+                    let witness = A / ((accumulator.g).pow(values.2));
+                    stateWitness.addStates(key.0, key.1, values.0,values.1, values.2, witness );
                 }
 
-                Message::NewStateWitness(stateWitness.clone());
-
+                Message::NewStateWitness(stateWitness.getAllStates(),stateWitness.getAllProof());
+                if stateWitness.States.capacity() > 0{
+                    ICO = true;
+                }
                 //Broadcast the witnesses
                 std::mem::drop(stateWitness);
                 std::mem::drop(accumulator);
-                if stateWitness.capacity() > 0{
-                    ICO = true;
-                }
+
             }
 
 
             //OLD check if valid in state
             //OLD read states to obtain ledger: balance, ready to generate txs
-            //NEW TODO: Check State Witnesses and Update Balance FULL NODE
+            //NEW TODO: Check State Witnesses and Update Balance for FULL NODE
+            let mut myStateWitness = Vec::<(H256, u32, u32, u32)>::new();
+            let mut all_value = 0 as f32;
             if !self.ifArchival{
                 let mut stateWitness = self.stateWitness.lock().unwrap();
-                let mut myStateWitness = Vec::<(H256, u32, u32, u32)>::new();
-                let mut all_value = 0 as f32;
                 if stateWitness.States.keys().len() > 0 {
                     for state in stateWitness.States.keys() {
                         //state check to avoid double spent
                         //State with witness: (prev TX Hash, prev Output Index) <-> (Output Value, Recipient Addr, Prime_number, Witness)
-                        if stateWitness.States.get(State).unwrap().1 == self.local_address {
+                        if stateWitness.States.get(state).unwrap().1 == self.local_address {
                             let tx_hash = state.0;
                             let output_index = state.1;
-                            let prime = stateWitness.States.get(State).unwrap().2;
-                            let witness = stateWitness.States.get(State).unwrap().3;
+                            let prime = stateWitness.States.get(state).unwrap().2;
+                            let witness = stateWitness.States.get(state).unwrap().3;
                             myStateWitness.push((tx_hash, output_index, prime, witness));
-                            all_value = all_value + stateWitness.States.get(State).unwrap().0; //account balance
+                            all_value = all_value + stateWitness.States.get(state).unwrap().0; //account balance
                         }
                     }
                 }
@@ -397,7 +391,7 @@ impl Context {
                 for Iteration in myStateWitness.iter() {
                     pre_hash.push(Iteration.0);
                     pre_index.push(Iteration.1);
-                    witness.push(witness{prime_number:Iteration.2,witness:Iteration.3,})
+                    witness_vec.push(witness{prime_number:Iteration.2,witness:Iteration.3,})
                 }
                 //recipient value
                 let mut dest_value:f32 = 0.0;
@@ -430,7 +424,7 @@ impl Context {
                     }
 
                     //generating signed transactions
-                    let mut transaction = generate_transaction(&pre_hash, &pre_index, witness: &witness_vec , &out_value, &recp_addr);
+                    let mut transaction = generate_transaction(&pre_hash, &pre_index, &witness_vec , &out_value, &recp_addr);
                     let signature = sign(&transaction, &self.key_pair);
                     let SignedTransaction = SignedTransaction::new(&transaction, &signature, &self.key_pair.public_key());
 
@@ -448,7 +442,7 @@ impl Context {
 
                     if (!mempool.Transactions.contains_key(&SignedTransaction.hash()))
                         && SignedTransaction.verifySignedTransaction()
-                        && stateWitness.ifNotDoubleSpent(&SignedTransaction.transaction.Input,&self.blockchain.tip.0) //TODO DONE
+                        && stateWitness.ifNotDoubleSpent(&SignedTransaction.transaction.Input,&self.blockchain.lock().unwrap().tip()) //TODO DONE
                         && valid{
                         mempool.insert(&SignedTransaction);
                         for input in transaction.Input.clone() {
@@ -543,7 +537,7 @@ impl StateWitness {
     pub fn new() -> Self{
         let states:HashMap<(H256, u32),(f32, H160, u32, u32)> = HashMap::new();
         let accumulator_proof:HashMap<H256, u32> = HashMap::new();
-        return State{States: states, AccumulatorProof: accumulator_proof}
+        return StateWitness{States: states, AccumulatorProof: accumulator_proof}
     }
 
 
@@ -557,7 +551,7 @@ impl StateWitness {
             let witness = input.witness.witness;
             if self.AccumulatorProof.contains_key(&Block_Hash){
                 let AccumulatorProof = self.AccumulatorProof.get(&Block_Hash).unwrap();
-                if *AccumulatorProof == pow(witness,prime_number) {
+                if *AccumulatorProof == witness.pow(prime_number) {
                     is_not_double_spent = is_not_double_spent && true;
                 }
                 else{
@@ -588,6 +582,24 @@ impl StateWitness {
         }
     }
 
+    pub fn getAllStates(&self) -> Vec<(H256, u32, f32, H160, u32, u32)>{
+        let mut all_states = Vec::<(H256, u32, f32, H160, u32, u32)>::new();
+        let States = self.States.clone();
+        for (key, values) in States.iter() {
+            all_states.push((key.0,key.1,values.0,values.1,values.2,values.3));
+        }
+        return all_states;
+    }
+
+    pub fn getAllProof(&self) -> Vec<(H256,u32)> {
+        let mut all_proof = Vec::<(H256,u32)>::new();
+        let AccumulatorProof = self.AccumulatorProof.clone();
+        for (hash,proof) in AccumulatorProof.iter(){
+            all_proof.push((*hash,*proof));
+        }
+        all_proof
+    }
+
 }
 //state Ends
 
@@ -607,7 +619,7 @@ pub fn generate_random_signed_transaction_() -> SignedTransaction {
     let mut witness = witness{prime_number:rand_u32, witness: rand_u32,};
     let mut witness_vec = [witness].to_vec();
 
-    let mut transaction = generate_transaction(&new_hash_vec,&rand_u32_vec, witness_vec: &witness_vec,&rand_f32_vec,&rand_addr);
+    let mut transaction = generate_transaction(&new_hash_vec,&rand_u32_vec, &witness_vec,&rand_f32_vec,&rand_addr);
     let key = key_pair::random();
     let signature = sign(&transaction,&key);
     let SignedTransaction = SignedTransaction::new(&transaction,&signature,&key.public_key());
