@@ -9,6 +9,8 @@ use crate::crypto::merkle::{MerkleTree};
 use crate::transaction::{Transaction, Mempool, SignedTransaction, StateWitness};
 use rand::{thread_rng, Rng};
 use ring::{digest};
+extern crate ramp;
+use ramp::Int;
 
 use log::{info,debug};
 
