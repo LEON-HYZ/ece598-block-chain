@@ -8,24 +8,27 @@ use modpow::modpow;
 use num_bigint::BigInt;
 use num_traits::One;
 use std::sync::Mutex;
-extern crate ramp;
-use ramp::Int;
-use rand::rngs::OsRng;
-use self::ramp::RandomInt;
-use rug::{Assign, Integer};
-use rug::rand::RandState;
-use chrono::format::Fixed::Internal;
 
-fn little_fermat(candidate: &Integer) -> bool {
 
-	let mut rand = RandState::new();
-	let i = Integer::from(candidate);
-	let result = i.random_below(&mut rand);
-	result == Integer::from(1)
+fn little_fermat(candidate: &u128) -> bool {
+	let mut rng = thread_rng();
+	let random:u128 = rng.gen_range(0, candidate);
+	let result = modpow(&random, &(candidate - 1), candidate);
+	let mut f1: BigInt = One::one();
+	result == f1
 }
 
-fn is_prime_naive(numb: &Integer) -> bool {
-	let mut i = Integer::from(3);
+fn little_fermat_u32(candidate: &u32) -> bool {
+	let mut rng = thread_rng();
+	let random:u32 = rng.gen_range(0, candidate);
+	let result = modpow(&random, &(candidate - 1), candidate);
+	let mut f1: BigInt = One::one();
+	result == f1
+}
+
+
+fn is_prime_naive(numb: &u128) -> bool {
+	let mut i = 3u128;
 	while &i < numb {
 		if numb % &i == 0 {
 			return false
@@ -35,9 +38,19 @@ fn is_prime_naive(numb: &Integer) -> bool {
 	return true;
 }
 
+fn is_prime_naive_u32(numb: &u32) -> bool {
+	let mut i = 3u32;
+	while &i < numb {
+		if numb % &i == 0 {
+			return false
+		}
+		i = i + 2;
+	}
+	return true;
+}
 
-fn is_prime(candidate: &Integer) -> bool {
-	if *candidate == Integer::from(1) {
+fn is_prime(candidate: &u128) -> bool {
+	if *candidate == 1 {
 		return false;
 	}
 	if !little_fermat(candidate) {
@@ -50,71 +63,94 @@ fn is_prime(candidate: &Integer) -> bool {
 	true
 }
 
+fn is_prime_u32(candidate: &u32) -> bool {
+	if *candidate == 1 {
+		return false;
+	}
+	if !little_fermat_u32(candidate) {
+		return false;
+	}
 
-fn genprime(n: u32) -> Integer {
+	if !is_prime_naive_u32(candidate) {
+		return false;
+	}
+	true
+}
 
-	let mut rand = RandState::new();
+pub fn genprime(j: u128, low: u128, high:u128) -> u128 {
+	let mut rng = thread_rng();
 	loop {
-		let mut candidate = Integer::from(Integer::random_bits(n, &mut rand));
-		candidate.set_bit(0, true);
-		candidate.set_bit((n-1) as u32, true);
-		if is_prime(&candidate) == true {
+		let mut candidate:u128 = rng.gen_range(low, high);
+		candidate |= 1 << 0;
+		candidate |= 1 << j-1;
+		if is_prime(&candidate) == true { 
+			return candidate;
+		}
+	}
+}
+
+pub fn genprime_u32(j: u32, low: u32, high:u32) -> u32 {
+	let mut rng = thread_rng();
+	loop {
+		let mut candidate:u32 = rng.gen_range(low, high);
+		candidate |= 1 << 0;
+		candidate |= 1 << j-1;
+		if is_prime_u32(&candidate) == true {
 			return candidate;
 		}
 	}
 }
 
 
-pub fn parameters() -> (Integer, Integer, Integer) {
+pub fn parameters() -> (u128, u128, u128) {
 	let mut rng = thread_rng();
-	let p = genprime(10);
-	let q = genprime(10);
+	let mut j:u32 = 4;
+	let p = genprime(j as u128, 10u128.pow(j-1), 10u128.pow(j)-1);
+	let q = genprime(j as u128, 10u128.pow(j-1), 10u128.pow(j)-1);
 	//let g = genprime(j, 10u32.pow(j-1), 10u32.pow(j)-1);
-	let g = genprime(1);
+	let g = genprime(1,2,7);
 	return (p,q,g)
 }
 
 pub struct Accumulator {
-	pub accumulator: HashMap<(H256,u32),(f32,H160,Integer)>,// prev TX Hash, prev Output Index <-> Output Value, Recp Addr, Prime
-	pub prime_set : HashSet<Integer>,
-	pub n: Integer,
-	pub g: Integer,
-	//pub product: Integer,
+	pub accumulator: HashMap<(H256,u32),(f32,H160,u32)>,// prev TX Hash, prev Output Index <-> Output Value, Recp Addr, Prime
+	pub prime_set : HashSet<u32>,
+	pub n: u128,
+	pub g: u128,
 }
 
 impl Accumulator {
 
 	pub fn new() -> Self {
-		let accumulator = HashMap::<(H256,u32),(f32,H160,BigInt)>::new(); //TX Hash, Output Index, Output Value, Recp Addr, Prime
-		let mut prime_set = HashSet::<BigInt>::new();
+		let accumulator = HashMap::<(H256,u32),(f32,H160,u32)>::new(); //TX Hash, Output Index, Output Value, Recp Addr, Prime
+		let mut prime_set = HashSet::<u32>::new();
 		let (p, q, g) = parameters();
-	    let mut _n = Integer::from(&p * &q);
+	    let mut _n = p*q;
 	    let mut _g = g;
 		return Accumulator{accumulator: accumulator, prime_set: prime_set,  n: _n, g: _g,}
 	}
 
 	pub fn hash_to_prime(&mut self, tx_hash: H256, output_index: u32,output_value:f32, recp_addr: H160 ){
 		let mut rng = thread_rng();
-		let prime = genprime(2);
+		let mut j:u32 = rng.gen_range(1, 2);
+		let prime = genprime_u32(j, 10u32.pow(j-1), 10u32.pow(j)-1);
 		if self.prime_set.contains(&prime){
 			self.hash_to_prime(tx_hash, output_index, output_value,recp_addr);
 		}else{
-			self.prime_set.insert(prime.clone());
-	    	self.accumulator.insert((tx_hash, output_index),(output_value,recp_addr, prime.clone()));
+			self.prime_set.insert(prime);
+	    	self.accumulator.insert((tx_hash, output_index),(output_value,recp_addr, prime));
 		}
 
 	}
 
-	pub fn accumulate(&mut self) -> Integer {
+	pub fn accumulate(&self) -> u128 {
 
-		let mut x = Integer::from(1);
+		let mut x = 1u32;
 	    for (_, val) in self.accumulator.iter() {
-	        x = Integer::from(&x * &val.2);
+	        x = x*val.2;
 	    }
-		self.product = x;
 		println!( "g is {:?}, x is {:?}",self.g, x);
-		let exp:usize = Integer::from(&'a x);
-	    let a = (self.g).pow(exp);
+	    let a:u128 = (self.g).overflowing_pow(x).0;
 	    //let a = a%(self.n);
 	    println!("A is {:?}",a );
 		return a

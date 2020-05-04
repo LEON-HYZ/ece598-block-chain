@@ -28,8 +28,6 @@ num-bigint = "0.2.6"
 num-traits = "0.2.11"
 lazy_static = "1.4.0"
 num-integer = "0.1.42"
-ramp = "0.5.7"
-rug = "1.8.0"
 
 [features]
 default = []

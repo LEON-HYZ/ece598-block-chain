@@ -3,8 +3,6 @@ use super::peer;
 use crate::network::server::Handle as ServerHandle;
 use crossbeam::channel;
 use log::{debug, warn};
-extern crate ramp;
-use ramp::Int;
 
 use std::sync::{Arc, Mutex};
 use crate::crypto::hash::{H256, Hashable, H160};
@@ -255,8 +253,7 @@ impl Context {
                                             stateWitness.AccumulatorProof.insert(block.hash(),A);
                                             //Calculate witnesses and Add states with witnesses to stateWitness
                                             for (key, values) in accumulator.accumulator.iter() {
-                                                let mut exp:usize = Int::from(&'a (accumulator.product/values.2));
-                                                let mut witness = (accumulator.g).pow(exp);
+                                                let witness = A / ((accumulator.g).pow(values.2));
                                                 stateWitness.addStates(key.0, key.1, values.0,values.1, values.2, witness );
                                             }
                                             self.server.broadcast(Message::NewStateWitness(stateWitness.getAllStates(),stateWitness.getNewProof(&block.hash())));
@@ -333,8 +330,7 @@ impl Context {
                                         stateWitness.AccumulatorProof.insert(orphan.hash(),A);
                                         //Calculate witnesses and Add states with witnesses to stateWitness
                                         for (key, values) in accumulator.accumulator.iter() {
-                                            let mut exp:usize = Int::from(&'a (accumulator.product/values.2));
-                                            let mut witness = (accumulator.g).pow(exp);
+                                            let witness = A / ((accumulator.g).pow(values.2));
                                             stateWitness.addStates(key.0, key.1, values.0,values.1, values.2, witness );
                                         }
                                         self.server.broadcast(Message::NewStateWitness(stateWitness.getAllStates(),stateWitness.getNewProof(&orphan.hash())));
