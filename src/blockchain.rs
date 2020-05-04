@@ -3,8 +3,6 @@ use crate::crypto::hash::{H256,Hashable};
 use crate::block::generate_random_block_;
 use ring::{digest};
 extern crate rand;
-extern crate ramp;
-use ramp::Int;
 
 use std::collections::HashMap;
 

@@ -7,8 +7,6 @@ use crate::accumulator::Accumulator;
 use std::sync::{Arc, Mutex};
 use std::collections::{HashMap, HashSet};
 use ring::{digest};
-extern crate ramp;
-use ramp::Int;
 
 use rand::{thread_rng, Rng};
 use rand::distributions::Alphanumeric;
@@ -28,15 +26,13 @@ use std::ops::Deref;
 use num_integer::Roots;
 //use std::intrinsics::fabsf32;
 use crate::blockchain::Blockchain;
-use rand::rngs::OsRng;
-use self::ramp::RandomInt;
 //use std::intrinsics::prefetch_read_data;
 
 //Update: add witness to txs
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Copy)]
 pub struct witness {
-    pub prime_number: Int,
-    pub witness: Int,
+    pub prime_number: u32,
+    pub witness: u128,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, Copy)]
@@ -345,8 +341,7 @@ impl Context {
                 for (key, values) in accumulator.accumulator.iter() {
 
                     //let g_a = (accumulator.g).overflowing_pow(values.2).0;
-                    let mut exp:usize = Int::from(&'a (accumulator.product/values.2));
-                    let mut witness = (accumulator.g).pow(exp);
+                    let mut witness = A.nth_root(values.2);
                     println!("a:{:?}, g: {:?}, A:{:?}, witness{:?}",values.2, accumulator.g, A, witness);
 
                     stateWitness.addStates(key.0, key.1, values.0,values.1, values.2, witness );
@@ -548,13 +543,13 @@ A = g^(a_1*a_2*...*a_6)
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct StateWitness {
     //States with Witness
-    pub States: HashMap<(H256, u32),(f32, H160, Int, Int)>, //  (prev TX Hash, prev Output Index) <-> (Output Value, Recipient Addr, Prime_number, Witness)
-    pub AccumulatorProof: HashMap<H256,Int>, // Block Hash <-> Accumulator
+    pub States: HashMap<(H256, u32),(f32, H160, u32, u128)>, //  (prev TX Hash, prev Output Index) <-> (Output Value, Recipient Addr, Prime_number, Witness)
+    pub AccumulatorProof: HashMap<H256,u128>, // Block Hash <-> Accumulator
 }
 impl StateWitness {
     pub fn new() -> Self{
-        let states:HashMap<(H256, u32),(f32, H160, Int, Int)> = HashMap::new();
-        let accumulator_proof:HashMap<H256, Int> = HashMap::new();
+        let states:HashMap<(H256, u32),(f32, H160, u32, u128)> = HashMap::new();
+        let accumulator_proof:HashMap<H256, u128> = HashMap::new();
         return StateWitness{States: states, AccumulatorProof: accumulator_proof}
     }
 
@@ -569,8 +564,7 @@ impl StateWitness {
             let witness = input.witness.witness;
             if self.AccumulatorProof.contains_key(&Block_Hash){
                 let AccumulatorProof = self.AccumulatorProof.get(&Block_Hash).unwrap();
-                let mut exp:usize = Int::from(&'a prime_number);
-                if *AccumulatorProof == witness.pow(exp) {
+                if *AccumulatorProof == witness.pow(prime_number) {
                     is_not_double_spent = is_not_double_spent && true;
                 }
                 else{
@@ -583,7 +577,7 @@ impl StateWitness {
     }
     // CODE FOR ADDING STATES
     // ENTER TX HASH, OUTPUT INDEX, OUTPUT VALUE, RECP ADDR, PRIME NUMBER, WITNESS
-    pub fn addStates(&mut self, transaction_hash: H256, output_index: u32, output_value: f32, recp_address: H160, prime_number: Int, witness: Int) {
+    pub fn addStates(&mut self, transaction_hash: H256, output_index: u32, output_value: f32, recp_address: H160, prime_number: u32, witness: u128) {
         if !self.States.contains_key(&(transaction_hash,output_index)){
             self.States.insert((transaction_hash,output_index),(output_value,recp_address,prime_number,witness));
         }
@@ -595,14 +589,14 @@ impl StateWitness {
         }
     }
     // ENTER BLOCK HASH, ACCUMULATOR
-    pub fn updateAccumulator(&mut self, Block_Hash: H256, AccumulatorProof: Int) {
+    pub fn updateAccumulator(&mut self, Block_Hash: H256, AccumulatorProof: u128) {
         if !self.AccumulatorProof.contains_key(&(Block_Hash)){
             self.AccumulatorProof.insert(Block_Hash, AccumulatorProof);
         }
     }
 
-    pub fn getAllStates(&self) -> Vec<(H256, u32, f32, H160, Int, Int)>{
-        let mut all_states = Vec::<(H256, u32, f32, H160, Int, Int)>::new();
+    pub fn getAllStates(&self) -> Vec<(H256, u32, f32, H160, u32, u128)>{
+        let mut all_states = Vec::<(H256, u32, f32, H160, u32, u128)>::new();
         let States = self.States.clone();
         for (key, values) in States.iter() {
             all_states.push((key.0,key.1,values.0,values.1,values.2,values.3));
@@ -610,8 +604,8 @@ impl StateWitness {
         return all_states;
     }
 
-    pub fn getNewProof(&self, block_hash: &H256) -> Vec<(H256,Int)> {
-        let mut new_proof = Vec::<(H256,Int)>::new();
+    pub fn getNewProof(&self, block_hash: &H256) -> Vec<(H256,u128)> {
+        let mut new_proof = Vec::<(H256,u128)>::new();
         let AccumulatorProof = self.AccumulatorProof.clone();
         if AccumulatorProof.contains_key(block_hash){
             new_proof.push((*block_hash,*AccumulatorProof.get(block_hash).unwrap()));
@@ -636,9 +630,7 @@ pub fn generate_random_signed_transaction_() -> SignedTransaction {
     let mut rand_f32:f32 = rand::thread_rng().gen();
     let mut rand_f32_vec = [rand_f32].to_vec();
     let mut rand_u128:u128 = rand::thread_rng().gen();
-    let mut rng = OsRng::new().ok().expect("Failed to get OS random generator");
-    let mut rand_Int:Int = rng.gen_uint(n);
-    let mut witness = witness{prime_number:rand_Int, witness: rand_Int,};
+    let mut witness = witness{prime_number:rand_u32, witness: rand_u128,};
     let mut witness_vec = [witness].to_vec();
 
     let mut transaction = generate_transaction(&new_hash_vec,&rand_u32_vec, &witness_vec,&rand_f32_vec,&rand_addr);
