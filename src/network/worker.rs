@@ -250,13 +250,13 @@ impl Context {
                                             }
                                             //Calculate accumulator proof and Add it to Accumulator Proof
                                             let A = accumulator.accumulate();
-                                            stateWitness.AccumulatorProof.insert(self.blockchain.lock().unwrap().tip.0,A);
+                                            stateWitness.AccumulatorProof.insert(block.hash(),A);
                                             //Calculate witnesses and Add states with witnesses to stateWitness
                                             for (key, values) in accumulator.accumulator.iter() {
                                                 let witness = A / ((accumulator.g).pow(values.2));
                                                 stateWitness.addStates(key.0, key.1, values.0,values.1, values.2, witness );
                                             }
-                                            Message::NewStateWitness(stateWitness.getAllStates(),stateWitness.getAllProof());
+                                            self.server.broadcast(Message::NewStateWitness(stateWitness.getAllStates(),stateWitness.getNewProof(&block.hash())));
                                             std::mem::drop(stateWitness);
                                             std::mem::drop(accumulator);
 
@@ -327,13 +327,13 @@ impl Context {
                                         }
                                         //Calculate accumulator proof and Add it to Accumulator Proof
                                         let A = accumulator.accumulate();
-                                        stateWitness.AccumulatorProof.insert(self.blockchain.lock().unwrap().tip.0,A);
+                                        stateWitness.AccumulatorProof.insert(orphan.hash(),A);
                                         //Calculate witnesses and Add states with witnesses to stateWitness
                                         for (key, values) in accumulator.accumulator.iter() {
                                             let witness = A / ((accumulator.g).pow(values.2));
                                             stateWitness.addStates(key.0, key.1, values.0,values.1, values.2, witness );
                                         }
-                                        Message::NewStateWitness(stateWitness.getAllStates(),stateWitness.getAllProof());
+                                        self.server.broadcast(Message::NewStateWitness(stateWitness.getAllStates(),stateWitness.getNewProof(&orphan.hash())));
                                         std::mem::drop(stateWitness);
                                         std::mem::drop(accumulator);
 
@@ -421,26 +421,31 @@ impl Context {
                 }
 
                 Message::NewStateWitness( newState, newProof) => {
+                    //info!("WORKER: NEW STATE WITNESS RECEIVED");
                     if !self.ifArchival {
                         let mut stateWitness = self.stateWitness.lock().unwrap();
-                        //add new states and update old states
-                        for values in newState.iter(){
-                            if stateWitness.States.contains_key(&(values.0,values.1)) {
-                                stateWitness.deleteStates(values.0,values.1);
-                                stateWitness.addStates(values.0,values.1,values.2,values.3,values.4,values.5)
-                            }
+                        if !stateWitness.AccumulatorProof.contains_key(&newProof[0].0){
+                            //add new states and update old states
+                            for values in newState.iter(){
+                                if stateWitness.States.contains_key(&(values.0,values.1)) {
+                                    stateWitness.deleteStates(values.0,values.1);
+                                    stateWitness.addStates(values.0,values.1,values.2,values.3,values.4,values.5)
+                                }
                                 //only add states to local states related to the local address
-                            else if stateWitness.States.get(&(values.0,values.1)).unwrap().1 == self.local_address{
-                                stateWitness.addStates(values.0,values.1,values.2,values.3,values.4,values.5)
+                                else if values.3 == self.local_address{
+                                    stateWitness.addStates(values.0,values.1,values.2,values.3,values.4,values.5)
+                                }
                             }
-                        }
-                        for values in newProof.iter(){
-                            if !stateWitness.AccumulatorProof.contains_key(&values.0){
-                                stateWitness.AccumulatorProof.insert(values.0,values.1);
+                            for values in newProof.iter(){
+                                if !stateWitness.AccumulatorProof.contains_key(&values.0){
+                                    stateWitness.AccumulatorProof.insert(values.0,values.1);
+                                }
                             }
+                            println!("WORKER: UPDATED STATE WITNESS: {:?}",stateWitness);
+                            std::mem::drop(stateWitness);
                         }
-                        std::mem::drop(stateWitness);
-                    }
+                        self.server.broadcast(Message::NewStateWitness(newState,newProof));
+                        }
 
                 }
 

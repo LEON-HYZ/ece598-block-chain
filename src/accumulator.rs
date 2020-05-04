@@ -10,15 +10,35 @@ use num_traits::One;
 use std::sync::Mutex;
 
 
-fn little_fermat(candidate: &u32) -> bool {
+fn little_fermat(candidate: &u128) -> bool {
 	let mut rng = thread_rng();
-	let random:u32 = rng.gen_range(0, candidate); 
+	let random:u128 = rng.gen_range(0, candidate);
 	let result = modpow(&random, &(candidate - 1), candidate);
 	let mut f1: BigInt = One::one();
 	result == f1
 }
 
-fn is_prime_naive(numb: &u32) -> bool {
+fn little_fermat_u32(candidate: &u32) -> bool {
+	let mut rng = thread_rng();
+	let random:u32 = rng.gen_range(0, candidate);
+	let result = modpow(&random, &(candidate - 1), candidate);
+	let mut f1: BigInt = One::one();
+	result == f1
+}
+
+
+fn is_prime_naive(numb: &u128) -> bool {
+	let mut i = 3u128;
+	while &i < numb {
+		if numb % &i == 0 {
+			return false
+		}
+		i = i + 2;
+	}
+	return true;
+}
+
+fn is_prime_naive_u32(numb: &u32) -> bool {
 	let mut i = 3u32;
 	while &i < numb {
 		if numb % &i == 0 {
@@ -29,7 +49,10 @@ fn is_prime_naive(numb: &u32) -> bool {
 	return true;
 }
 
-fn is_prime(candidate: &u32) -> bool { 
+fn is_prime(candidate: &u128) -> bool {
+	if *candidate == 1 {
+		return false;
+	}
 	if !little_fermat(candidate) {
 		return false;
 	}
@@ -40,10 +63,24 @@ fn is_prime(candidate: &u32) -> bool {
 	true
 }
 
-pub fn genprime(j: u32, low: u32, high:u32) -> u32 {
+fn is_prime_u32(candidate: &u32) -> bool {
+	if *candidate == 1 {
+		return false;
+	}
+	if !little_fermat_u32(candidate) {
+		return false;
+	}
+
+	if !is_prime_naive_u32(candidate) {
+		return false;
+	}
+	true
+}
+
+pub fn genprime(j: u128, low: u128, high:u128) -> u128 {
 	let mut rng = thread_rng();
 	loop {
-		let mut candidate:u32 = rng.gen_range(low, high); 
+		let mut candidate:u128 = rng.gen_range(low, high);
 		candidate |= 1 << 0;
 		candidate |= 1 << j-1;
 		if is_prime(&candidate) == true { 
@@ -52,21 +89,34 @@ pub fn genprime(j: u32, low: u32, high:u32) -> u32 {
 	}
 }
 
-
-pub fn parameters() -> (u32, u32, u32) {
+pub fn genprime_u32(j: u32, low: u32, high:u32) -> u32 {
 	let mut rng = thread_rng();
-	let mut j:u32 = rng.gen_range(3, 7);
-	let p = genprime(j, 10u32.pow(j-1), 10u32.pow(j)-1);
-	let q = genprime(j, 10u32.pow(j-1), 10u32.pow(j)-1);
-	let g = genprime(j, 10u32.pow(j-1), 10u32.pow(j)-1);
+	loop {
+		let mut candidate:u32 = rng.gen_range(low, high);
+		candidate |= 1 << 0;
+		candidate |= 1 << j-1;
+		if is_prime_u32(&candidate) == true {
+			return candidate;
+		}
+	}
+}
+
+
+pub fn parameters() -> (u128, u128, u128) {
+	let mut rng = thread_rng();
+	let mut j:u32 = 4;
+	let p = genprime(j as u128, 10u128.pow(j-1), 10u128.pow(j)-1);
+	let q = genprime(j as u128, 10u128.pow(j-1), 10u128.pow(j)-1);
+	//let g = genprime(j, 10u32.pow(j-1), 10u32.pow(j)-1);
+	let g = genprime(1,2,7);
 	return (p,q,g)
 }
 
 pub struct Accumulator {
 	pub accumulator: HashMap<(H256,u32),(f32,H160,u32)>,// prev TX Hash, prev Output Index <-> Output Value, Recp Addr, Prime
 	pub prime_set : HashSet<u32>,
-	pub n: u32,
-	pub g: u32,
+	pub n: u128,
+	pub g: u128,
 }
 
 impl Accumulator {
@@ -82,8 +132,8 @@ impl Accumulator {
 
 	pub fn hash_to_prime(&mut self, tx_hash: H256, output_index: u32,output_value:f32, recp_addr: H160 ){
 		let mut rng = thread_rng();
-		let mut j:u32 = rng.gen_range(3, 7);
-		let prime = genprime(j, 10u32.pow(j-1), 10u32.pow(j)-1);
+		let mut j:u32 = rng.gen_range(1, 2);
+		let prime = genprime_u32(j, 10u32.pow(j-1), 10u32.pow(j)-1);
 		if self.prime_set.contains(&prime){
 			self.hash_to_prime(tx_hash, output_index, output_value,recp_addr);
 		}else{
@@ -93,14 +143,16 @@ impl Accumulator {
 
 	}
 
-	pub fn accumulate(&self) -> u32 {
+	pub fn accumulate(&self) -> u128 {
+
 		let mut x = 1u32;
 	    for (_, val) in self.accumulator.iter() {
 	        x = x*val.2;
 	    }
-	    let a = (self.g).overflowing_pow(x).0 ;
-	    let a = a%(self.n);
-	    println!("a is {:?}",a );
+		println!( "g is {:?}, x is {:?}",self.g, x);
+	    let a:u128 = (self.g).overflowing_pow(x).0;
+	    //let a = a%(self.n);
+	    println!("A is {:?}",a );
 		return a
 	}
 /*

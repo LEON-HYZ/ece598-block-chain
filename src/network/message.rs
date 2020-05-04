@@ -15,6 +15,6 @@ pub enum Message {
     GetTransactions(Vec<H256>),
     Transactions(Vec<SignedTransaction>),
     //TODO:Update State Witness, Accumulator Proof
-    NewStateWitness(Vec<(H256, u32, f32, H160, u32, u32)>,Vec<(H256,u32)>),
+    NewStateWitness(Vec<(H256, u32, f32, H160, u32, u128)>,Vec<(H256,u128)>),
 }
 
