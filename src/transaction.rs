@@ -264,6 +264,7 @@ impl Context {
         let mut other_address = Vec::<H160>::new();
         let mut all_address = Vec::<H160>::new();
         let mut tx_set = HashSet::<(H256,u32)>::new();
+        let mut block_set = HashSet::<H256>::new();
 
         // main transacation generating loop
         loop {
@@ -309,14 +310,16 @@ impl Context {
                     let mut address: H160 = <H160>::from(addr_u8);
                     all_address.push(address);
                 }
+
+                archival_address.push(all_address[0]); // the last one is archival address
                 //Record other tx addresses
+                all_address.remove(0);
                 for i in 0..(data_len-1) {
                     if !(all_address[i] == self.local_address) {
                         other_address.push(all_address[i]);
                     }
                 }
-                archival_address.push(all_address.pop().unwrap()); // the last one is archival address
-                //all_address.remove(-1);
+
                 readADD = true;
                 if(self.local_address != archival_address[0]) {
                     println!("TXG: THERE IS A TRANSACTION GENERATOR ON PROCESS: {:?},", self.local_address);
@@ -341,12 +344,16 @@ impl Context {
                 for (key, values) in accumulator.accumulator.iter() {
 
                     //let g_a = (accumulator.g).overflowing_pow(values.2).0;
-                    let mut witness = A.nth_root(values.2);
+                    let mut witness = A / (values.2 as u128);
                     println!("a:{:?}, g: {:?}, A:{:?}, witness{:?}",values.2, accumulator.g, A, witness);
 
                     stateWitness.addStates(key.0, key.1, values.0,values.1, values.2, witness );
                 }
-                println!("ARCHIVAL NODE: STATE WITNESS{:?}", stateWitness.States);
+                for state_key in stateWitness.States.keys(){
+                    let recp = stateWitness.States.get(state_key).unwrap().1;
+                    let value = stateWitness.States.get(state_key).unwrap().0;
+                    println!("FULL NODE: UPDATED STATE WITNESS: RCEP: {:?}, VALUE: {:?}", recp, value);
+                }
 
                 self.server.broadcast(Message::NewStateWitness(stateWitness.getAllStates(),stateWitness.getNewProof(&self.blockchain.lock().unwrap().tip.0)));
                 if stateWitness.States.capacity() > 0{
@@ -388,7 +395,7 @@ impl Context {
 
 
             // TODO GENERATING TXS FULL NODE
-            if !self.ifArchival && myStateWitness.capacity() > 0 {
+            if !self.ifArchival && myStateWitness.capacity() > 0 && !block_set.contains(&self.blockchain.lock().unwrap().tip.0){
                 //input
                 let mut pre_hash = Vec::<H256>::new();
                 let mut pre_index = Vec::<u32>::new();
@@ -396,7 +403,6 @@ impl Context {
                 //output
                 let mut out_value = Vec::<f32>::new();
                 let mut recp_addr = Vec::<H160>::new();
-                info!("1");
 
                 for Iteration in myStateWitness.iter() {
                     pre_hash.push(Iteration.0);
@@ -426,14 +432,13 @@ impl Context {
                 let mut num = rng.gen_range(0, other_address.len());
                 let dest_addr: H160 = other_address[num];
                 recp_addr.push(dest_addr);
-                info!("2");
+
                 if rest_value >= 0.0 {
                     out_value.push(dest_value);
                     if rest_value > 0.0 {
                         out_value.push(rest_value);
                         recp_addr.push(self.local_address);
                     }
-                    info!("3");
 
                     //generating signed transactions
                     let mut transaction = generate_transaction(&pre_hash, &pre_index, &witness_vec , &out_value, &recp_addr);
@@ -461,7 +466,7 @@ impl Context {
                             tx_set.insert((input.prevTransaction,input.preOutputIndex));
                         }
                         tx_counter = tx_counter + 1;
-                        info!("4");
+                        info!("TXG: TX GENERATED");
                         //println!("{:?}",tx_counter);
                         //info!("There is a transaction generator that can put transactions into these clients.");
                         let mut txHash = Vec::<H256>::new();
@@ -470,6 +475,7 @@ impl Context {
                             println!("TXG: MEMPOOL KEYS:{:?}", key);//, mempool.Transactions.get(key).unwrap().transaction.Input, mempool.Transactions.get(key).unwrap().transaction.Output);
                         }
                         //txHash.push(SignedTransaction.hash().clone());
+                        block_set.insert(self.blockchain.lock().unwrap().tip.0);
                         self.server.broadcast(Message::NewTransactionHashes(txHash));
                         println!("TXG: {:?} PAID {:?} {:?} BTC", self.local_address, dest_addr,dest_value);
                     }
@@ -559,12 +565,14 @@ impl StateWitness {
     // ENTER INPUT VECTOR WITH BLOCK HASH TO CHECK IF THE TX IS DOUBLE SPENT OR NOT
     pub fn ifNotDoubleSpent (&self, Input: &Vec<input>, Block_Hash: &H256) -> bool {
         let mut is_not_double_spent = true;
-        for input in Input.clone() {
+        for input in Input.iter() {
             let prime_number = input.witness.prime_number;
             let witness = input.witness.witness;
+            //println!("DOUBLE CHECK: PRIME: {:?} WITNESS: {:?}", prime_number, witness);
             if self.AccumulatorProof.contains_key(&Block_Hash){
                 let AccumulatorProof = self.AccumulatorProof.get(&Block_Hash).unwrap();
-                if *AccumulatorProof == witness.pow(prime_number) {
+                //println!("DOUBLE CHECK: PROOF: {:?}",*AccumulatorProof);
+                if *AccumulatorProof == witness * (prime_number as u128) {
                     is_not_double_spent = is_not_double_spent && true;
                 }
                 else{

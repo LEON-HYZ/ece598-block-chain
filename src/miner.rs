@@ -174,15 +174,15 @@ impl Context {
 
             // TODO: actual mining
 
-            if self.mempool.lock().unwrap().Transactions.keys().len() > 0 {
+            if self.mempool.lock().unwrap().Transactions.keys().len() > 0 && !self.ifArchival {
                 //info!("MINER: STARTING...");
                 let nonce:u32 = thread_rng().gen();
                 let timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
 
                 // difficulty
                 let mut bytes32 = [255u8;32];
-                bytes32[0]=10;
-                bytes32[1]=20;
+                bytes32[0]=1;
+                bytes32[1]=1;
                 let difficulty : H256 = bytes32.into();
 
                 // read transactions from mempool
@@ -254,7 +254,7 @@ impl Context {
                         //let mut stateSet = self.stateSet.lock().unwrap();
                         let mut check = true;
                         for content in contents.iter(){
-                            if  stateWitness.ifNotDoubleSpent(&content.transaction.Input,&self.blockchain.lock().unwrap().tip() )
+                            if  stateWitness.ifNotDoubleSpent(&content.transaction.Input,&self.blockchain.lock().unwrap().tip.0 )
                                 && content.verifySignedTransaction() {//state.ifNotDoubleSpent(content)
                                 check = check && true;
                             }
@@ -266,14 +266,15 @@ impl Context {
                         std::mem::drop(stateWitness);
                         std::mem::drop(mempool);
                         if check {
+                            let mut blockchain = self.blockchain.lock().unwrap();
 
-                            let tip_hash = self.blockchain.lock().unwrap().insert(&newBlock);
+                            let tip_hash = blockchain.insert(&newBlock);
 
 
                             //info!("MINER: NEW BLOCK ADDED");
                             miner_counter += 1;
                             println!("MINER: CURRENT MINER COUNT: {:?}", miner_counter);
-                            println!("MINER: CURRENT BLOCKCHAIN HEIGHT: {:?}", self.blockchain.lock().unwrap().tip.1);
+                            println!("MINER: CURRENT BLOCKCHAIN HEIGHT: {:?}", blockchain.tip.1);
 
                             //let mut state = self.state.lock().unwrap();
                             //let mut stateWitness = self.stateWitness.lock().unwrap();
@@ -282,9 +283,9 @@ impl Context {
                             /*for key in state.Outputs.keys() {
                                 println!("MINER: RECP: {:?}, VALUE {:?}", state.Outputs.get(key).unwrap().1, state.Outputs.get(key).unwrap().0);
                             }*/
-                            self.server.broadcast(Message::NewBlockHashes(self.blockchain.lock().unwrap().all_blocks_in_longest_chain()));
+                            self.server.broadcast(Message::NewBlockHashes(blockchain.all_blocks_in_longest_chain()));
                             //info!("MINER: BLOCK MESSAGES SENT");
-                            //std::mem::drop(state);
+                            std::mem::drop(blockchain);
                             std::mem::drop(mempool);
                         }
 

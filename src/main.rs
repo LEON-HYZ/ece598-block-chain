@@ -117,7 +117,7 @@ fn main() {
     let data = fs::read("ICO.txt").expect("Unable to read file");
     let data_len: usize = (data.len() / 20) as usize;
     //println!("data_length: {:?}", data.len());
-    if data_len == 4 {
+    if data_len == 1 {
         ifArchival = true;
     }
     // file.write_all("/n".as_bytes()).expect("write failed");

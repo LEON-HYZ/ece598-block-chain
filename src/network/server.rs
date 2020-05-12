@@ -128,6 +128,9 @@ impl Context {
         else if data.len() == 60 {
             info!("THREE PROCESSES ARE CONNECTED");
         }
+        else if data.len() == 80 {
+            info!("FOUR PROCESSES ARE CONNECTED");
+        }
         Ok(())
     }
 

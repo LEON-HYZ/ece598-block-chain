@@ -60,8 +60,8 @@ pub fn generate_random_block_(parent: &H256) -> Block {
     let mut nonce:u32 = thread_rng().gen();
     let mut timestamp = SystemTime::now().duration_since(UNIX_EPOCH).expect("Time went backwards").as_millis();
     let mut bytes32 = [255u8;32];
-    bytes32[0]=10;
-    bytes32[1]=20;
+    bytes32[0]=1;
+    bytes32[1]=1;
     let difficulty : H256 = bytes32.into();
     let mut transaction = Vec::<SignedTransaction>::new();
     transaction.push(generate_random_signed_transaction_());

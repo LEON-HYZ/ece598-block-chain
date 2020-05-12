@@ -5,7 +5,8 @@ use crate::transaction::{Transaction, SignedTransaction, StateWitness};
 use std::collections::{HashMap, HashSet};
 use rand::{thread_rng, Rng};
 use modpow::modpow;
-use num_bigint::BigInt;
+//extern crate num_bigint_dig as num_bigint;
+use num_bigint::{BigInt,BigUint};
 use num_traits::One;
 use std::sync::Mutex;
 
@@ -104,11 +105,12 @@ pub fn genprime_u32(j: u32, low: u32, high:u32) -> u32 {
 
 pub fn parameters() -> (u128, u128, u128) {
 	let mut rng = thread_rng();
-	let mut j:u32 = 4;
-	let p = genprime(j as u128, 10u128.pow(j-1), 10u128.pow(j)-1);
-	let q = genprime(j as u128, 10u128.pow(j-1), 10u128.pow(j)-1);
-	//let g = genprime(j, 10u32.pow(j-1), 10u32.pow(j)-1);
-	let g = genprime(1,2,7);
+	let mut j:u32 = rng.gen_range(2,9);
+	let p = genprime(j as u128, 2u128.pow(j-1), 2u128.pow(j)-1);
+	let q = genprime(j as u128, 2u128.pow(j-1), 2u128.pow(j)-1);
+	let mut j:u32 = rng.gen_range(2,7);
+	let g = genprime(j as u128, 2u128.pow(j-1), 2u128.pow(j)-1);
+	//let g = genprime(2,11,99);
 	return (p,q,g)
 }
 
@@ -132,8 +134,8 @@ impl Accumulator {
 
 	pub fn hash_to_prime(&mut self, tx_hash: H256, output_index: u32,output_value:f32, recp_addr: H160 ){
 		let mut rng = thread_rng();
-		let mut j:u32 = rng.gen_range(1, 2);
-		let prime = genprime_u32(j, 10u32.pow(j-1), 10u32.pow(j)-1);
+		let mut j:u32 = rng.gen_range(2, 10);
+		let prime = genprime_u32(j, 2u32.pow(j-1), 2u32.pow(j)-1);
 		if self.prime_set.contains(&prime){
 			self.hash_to_prime(tx_hash, output_index, output_value,recp_addr);
 		}else{
@@ -143,17 +145,31 @@ impl Accumulator {
 
 	}
 
-	pub fn accumulate(&self) -> u128 {
+	pub fn delete_hash_prime(&mut self, tx_hash: H256, output_index:u32, prime:u32) {
+		if self.accumulator.contains_key(&(tx_hash,output_index)){
+			self.accumulator.remove(&(tx_hash,output_index));
+		}
+		if self.prime_set.contains(&prime){
+			self.prime_set.remove(&prime);
+		}
+	}
 
-		let mut x = 1u32;
+	pub fn accumulate(&self) -> u128 {
+		let mut x = self.g;
 	    for (_, val) in self.accumulator.iter() {
-	        x = x*val.2;
+	        x = x*(val.2 as u128);
 	    }
 		println!( "g is {:?}, x is {:?}",self.g, x);
-	    let a:u128 = (self.g).overflowing_pow(x).0;
+	    //let a:u128 = (self.g).overflowing_pow(x).0;
 	    //let a = a%(self.n);
-	    println!("A is {:?}",a );
-		return a
+	    //println!("A is {:?}",a );
+		return x
+	}
+
+	pub fn update_parameters(&mut self) {
+		let (p, q, g) = parameters();
+		self.n = p*q;
+		self.g = g;
 	}
 /*
 	pub fn update(&mut self, SignedTransactions: &Vec<SignedTransaction>){
