@@ -1,6 +1,6 @@
 # Stateless Full Node Client
 
-In most current blockchain designs, nodes participating in transaction validation store the whole UTXO set and use it to verify whether a coin was unspent. Instead, we consider a blockchain design where the network maintains the UTXO set in a dynamic accumulator. This blockchain design consists of 4 stateless full nodes and one archival node. Stateless full nodes only need to store their own UTXO sets and membership proofs.
+In most current blockchain designs, nodes participating in transaction validation store the whole UTXO set and use it to verify whether a coin was unspent. Instead, we consider a blockchain design where the network maintains the UTXO set in a dynamic accumulator. This blockchain design consists of 4 stateless full nodes and one archival node. Stateless full nodes only need to store their own UTXO sets and membership proofs. [Documentation](https://docs.google.com/document/d/1FRtSDOEkNel9UhohquYTxjjDOgytqyQ8zpr4wt8V1zM/edit?usp=sharing). [Video Demo](https://www.youtube.com/watch?v=Q5XV8xm4l0M).
 
 ## Disclaimer
 This is a course project repository for ECE 598 PV: Principles of Blockchains, Spring 2020 at University of Illinois, Urbana-Champaign. [Main website of the course](https://courses.grainger.illinois.edu/ece598pv/sp2020/).
