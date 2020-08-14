@@ -9,4 +9,4 @@ This is a course project repository for ECE 598 PV: Principles of Blockchains, S
 
 ### Overview Diagram in Our Implementation
 The diagram contains 4 nodes including 3 stateless full nodes connected to 1 archival node; the process of sending state witnesses from the archival node and updating witnesses in each stateless full node.
-![Image of Yaktocat](https://octodex.github.com/images/yaktocat.png)
+![Overall Diagram](Overall Diagram.png)
